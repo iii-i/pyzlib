@@ -4,12 +4,9 @@ import sys
 
 import pyzlib
 
-strm = pyzlib.z_stream()
-strm.next_in = pyzlib.Z_NULL
-strm.avail_in = 0
-strm.zalloc = pyzlib.Z_NULL
-strm.free = pyzlib.Z_NULL
-strm.opaque = pyzlib.Z_NULL
+strm = pyzlib.z_stream(
+    next_in=pyzlib.Z_NULL, avail_in=0,
+    zalloc=pyzlib.Z_NULL, free=pyzlib.Z_NULL, opaque=pyzlib.Z_NULL)
 rc = pyzlib.inflateInit(strm)
 if rc != pyzlib.Z_OK:
     raise Exception('inflateInit() failed with error {}'.format(rc))

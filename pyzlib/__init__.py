@@ -60,7 +60,11 @@ _zlib = ctypes.CDLL(_zlib_name)
 
 _zlib.deflateInit_.restype = ctypes.c_int
 _zlib.deflateInit_.argtypes = [
-    ctypes.c_void_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_int]
+    ctypes.c_void_p,  # strm
+    ctypes.c_int,  # level
+    ctypes.c_char_p,  # version
+    ctypes.c_int,  # stream_size
+]
 
 
 def deflateInit(strm, level):
@@ -69,8 +73,30 @@ def deflateInit(strm, level):
         ctypes.c_char_p(ZLIB_VERSION), ctypes.sizeof(z_stream))
 
 
+_zlib.deflateInit2_.restype = ctypes.c_int
+_zlib.deflateInit2_.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_int,  # level
+    ctypes.c_int,  # method
+    ctypes.c_int,  # windowBits
+    ctypes.c_int,  # memLevel
+    ctypes.c_int,  # strategy
+    ctypes.c_char_p,  # version
+    ctypes.c_int,  # stream_size
+]
+
+
+def deflateInit2(strm, level, method, windowBits, memLevel, strategy):
+    return _zlib.deflateInit2_(
+        ctypes.addressof(strm), level, method, windowBits, memLevel, strategy,
+        ctypes.c_char_p(ZLIB_VERSION), ctypes.sizeof(z_stream))
+
+
 _zlib.deflate.restype = ctypes.c_int
-_zlib.deflate.argtypes = [ctypes.c_void_p, ctypes.c_int]
+_zlib.deflate.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_int,  # flush
+]
 
 
 def deflate(strm, flush):
@@ -78,7 +104,9 @@ def deflate(strm, flush):
 
 
 _zlib.deflateEnd.restype = ctypes.c_int
-_zlib.deflateEnd.argtypes = [ctypes.c_void_p]
+_zlib.deflateEnd.argtypes = [
+    ctypes.c_void_p,  # strm
+]
 
 
 def deflateEnd(strm):
@@ -87,7 +115,10 @@ def deflateEnd(strm):
 
 _zlib.inflateInit_.restype = ctypes.c_int
 _zlib.inflateInit_.argtypes = [
-    ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+    ctypes.c_void_p,  # strm
+    ctypes.c_char_p,  # version
+    ctypes.c_int,  # stream_size
+]
 
 
 def inflateInit(strm):
@@ -96,8 +127,26 @@ def inflateInit(strm):
         ctypes.c_char_p(ZLIB_VERSION), ctypes.sizeof(z_stream))
 
 
+_zlib.inflateInit2_.restype = ctypes.c_int
+_zlib.inflateInit2_.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_int,  # windowBits
+    ctypes.c_char_p,  # version
+    ctypes.c_int,  # stream_size
+]
+
+
+def inflateInit2(strm, windowBits):
+    return _zlib.inflateInit2_(
+        ctypes.addressof(strm), windowBits,
+        ctypes.c_char_p(ZLIB_VERSION), ctypes.sizeof(z_stream))
+
+
 _zlib.inflate.restype = ctypes.c_int
-_zlib.inflate.argtypes = [ctypes.c_void_p, ctypes.c_int]
+_zlib.inflate.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_int,  # flush
+]
 
 
 def inflate(strm, flush):
@@ -105,7 +154,9 @@ def inflate(strm, flush):
 
 
 _zlib.inflateEnd.restype = ctypes.c_int
-_zlib.inflateEnd.argtypes = [ctypes.c_void_p]
+_zlib.inflateEnd.argtypes = [
+    ctypes.c_void_p,  # strm
+]
 
 
 def inflateEnd(strm):
