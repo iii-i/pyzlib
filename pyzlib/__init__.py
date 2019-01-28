@@ -161,3 +161,14 @@ _zlib.inflateEnd.argtypes = [
 
 def inflateEnd(strm):
     return _zlib.inflateEnd(ctypes.addressof(strm))
+
+
+_zlib.deflateBound.restype = ctypes.c_ulong
+_zlib.deflateBound.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_ulong,  # sourceLen
+]
+
+
+def deflateBound(strm, sourceLen):
+    return _zlib.deflateBound(ctypes.addressof(strm), sourceLen)
