@@ -1,5 +1,6 @@
 import ctypes
 import ctypes.util
+import os
 
 ZLIB_VERSION = b'1.2.11'
 ZLIB_VERNUM = 0x12b0
@@ -56,7 +57,12 @@ Z_NULL = 0
 _zlib_name = ctypes.util.find_library('z')
 if _zlib_name is None:
     raise Exception('Could not find zlib')
-_zlib = ctypes.CDLL(_zlib_name)
+if os.name == 'posix':
+    # Allow LD_PRELOAD interposition
+    ctypes.CDLL(_zlib_name, mode=ctypes.RTLD_GLOBAL)
+    _zlib = ctypes.CDLL(None)
+else:
+    _zlib = ctypes.CDLL(_zlib_name)
 
 _zlib.deflateInit_.restype = ctypes.c_int
 _zlib.deflateInit_.argtypes = [
