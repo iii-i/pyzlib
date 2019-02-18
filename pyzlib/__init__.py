@@ -98,6 +98,19 @@ def deflateInit2(strm, level, method, windowBits, memLevel, strategy):
         ctypes.c_char_p(ZLIB_VERSION), ctypes.sizeof(z_stream))
 
 
+_zlib.deflateSetDictionary.restype = ctypes.c_int
+_zlib.deflateSetDictionary.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_void_p,  # dictionary
+    ctypes.c_uint,  # dictLength
+]
+
+
+def deflateSetDictionary(strm, dictionary, dictLength):
+    return _zlib.deflateSetDictionary(
+        ctypes.addressof(strm), dictionary, dictLength)
+
+
 _zlib.deflate.restype = ctypes.c_int
 _zlib.deflate.argtypes = [
     ctypes.c_void_p,  # strm
@@ -146,6 +159,19 @@ def inflateInit2(strm, windowBits):
     return _zlib.inflateInit2_(
         ctypes.addressof(strm), windowBits,
         ctypes.c_char_p(ZLIB_VERSION), ctypes.sizeof(z_stream))
+
+
+_zlib.inflateSetDictionary.restype = ctypes.c_int
+_zlib.inflateSetDictionary.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_void_p,  # dictionary
+    ctypes.c_uint,  # dictLength
+]
+
+
+def inflateSetDictionary(strm, dictionary, dictLength):
+    return _zlib.inflateSetDictionary(
+        ctypes.addressof(strm), dictionary, dictLength)
 
 
 _zlib.inflate.restype = ctypes.c_int
