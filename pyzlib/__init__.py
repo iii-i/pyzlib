@@ -52,6 +52,14 @@ Z_BEST_SPEED = 1
 Z_BEST_COMPRESSION = 9
 Z_DEFAULT_COMPRESSION = -1
 
+Z_FILTERED = 1
+Z_HUFFMAN_ONLY = 2
+Z_RLE = 3
+Z_FIXED = 4
+Z_DEFAULT_STRATEGY = 0
+
+Z_DEFLATED = 8
+
 Z_NULL = 0
 
 _zlib_name = ctypes.util.find_library('z')
