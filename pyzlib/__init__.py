@@ -58,6 +58,11 @@ Z_RLE = 3
 Z_FIXED = 4
 Z_DEFAULT_STRATEGY = 0
 
+Z_BINARY = 0
+Z_TEXT = 1
+Z_ASCII = Z_TEXT
+Z_UNKNOWN = 2
+
 Z_DEFLATED = 8
 
 Z_NULL = 0
@@ -72,6 +77,14 @@ if os.name == 'posix':
 else:
     _zlib = ctypes.CDLL(_zlib_name)
 
+_zlib.zlibVersion.restype = ctypes.c_char_p
+_zlib.zlibVersion.argtypes = []
+
+
+def zlibVersion():
+    return _zlib.zlibVersion()
+
+
 _zlib.deflateInit_.restype = ctypes.c_int
 _zlib.deflateInit_.argtypes = [
     ctypes.c_void_p,  # strm
@@ -85,38 +98,6 @@ def deflateInit(strm, level):
     return _zlib.deflateInit_(
         ctypes.addressof(strm), level,
         ctypes.c_char_p(ZLIB_VERSION), ctypes.sizeof(z_stream))
-
-
-_zlib.deflateInit2_.restype = ctypes.c_int
-_zlib.deflateInit2_.argtypes = [
-    ctypes.c_void_p,  # strm
-    ctypes.c_int,  # level
-    ctypes.c_int,  # method
-    ctypes.c_int,  # windowBits
-    ctypes.c_int,  # memLevel
-    ctypes.c_int,  # strategy
-    ctypes.c_char_p,  # version
-    ctypes.c_int,  # stream_size
-]
-
-
-def deflateInit2(strm, level, method, windowBits, memLevel, strategy):
-    return _zlib.deflateInit2_(
-        ctypes.addressof(strm), level, method, windowBits, memLevel, strategy,
-        ctypes.c_char_p(ZLIB_VERSION), ctypes.sizeof(z_stream))
-
-
-_zlib.deflateSetDictionary.restype = ctypes.c_int
-_zlib.deflateSetDictionary.argtypes = [
-    ctypes.c_void_p,  # strm
-    ctypes.c_void_p,  # dictionary
-    ctypes.c_uint,  # dictLength
-]
-
-
-def deflateSetDictionary(strm, dictionary, dictLength):
-    return _zlib.deflateSetDictionary(
-        ctypes.addressof(strm), dictionary, dictLength)
 
 
 _zlib.deflate.restype = ctypes.c_int
@@ -154,6 +135,173 @@ def inflateInit(strm):
         ctypes.c_char_p(ZLIB_VERSION), ctypes.sizeof(z_stream))
 
 
+_zlib.inflate.restype = ctypes.c_int
+_zlib.inflate.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_int,  # flush
+]
+
+
+def inflate(strm, flush):
+    return _zlib.inflate(ctypes.addressof(strm), flush)
+
+
+_zlib.inflateEnd.restype = ctypes.c_int
+_zlib.inflateEnd.argtypes = [
+    ctypes.c_void_p,  # strm
+]
+
+
+def inflateEnd(strm):
+    return _zlib.inflateEnd(ctypes.addressof(strm))
+
+
+_zlib.deflateInit2_.restype = ctypes.c_int
+_zlib.deflateInit2_.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_int,  # level
+    ctypes.c_int,  # method
+    ctypes.c_int,  # windowBits
+    ctypes.c_int,  # memLevel
+    ctypes.c_int,  # strategy
+    ctypes.c_char_p,  # version
+    ctypes.c_int,  # stream_size
+]
+
+
+def deflateInit2(strm, level, method, windowBits, memLevel, strategy):
+    return _zlib.deflateInit2_(
+        ctypes.addressof(strm), level, method, windowBits, memLevel, strategy,
+        ctypes.c_char_p(ZLIB_VERSION), ctypes.sizeof(z_stream))
+
+
+_zlib.deflateSetDictionary.restype = ctypes.c_int
+_zlib.deflateSetDictionary.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_void_p,  # dictionary
+    ctypes.c_uint,  # dictLength
+]
+
+
+def deflateSetDictionary(strm, dictionary, dictLength):
+    return _zlib.deflateSetDictionary(
+        ctypes.addressof(strm), dictionary, dictLength)
+
+
+_zlib.deflateGetDictionary.restype = ctypes.c_int
+_zlib.deflateGetDictionary.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_void_p,  # dictionary
+    ctypes.c_uint,  # dictLength
+]
+
+
+def deflateGetDictionary(strm, dictionary, dictLength):
+    return _zlib.deflateGetDictionary(
+        ctypes.addressof(strm), dictionary, dictLength)
+
+
+_zlib.deflateCopy.restype = ctypes.c_int
+_zlib.deflateCopy.argtypes = [
+    ctypes.c_void_p,  # dest
+    ctypes.c_void_p,  # source
+]
+
+
+def deflateCopy(dest, source):
+    return _zlib.deflateCopy(ctypes.addressof(dest), ctypes.addressof(source))
+
+
+_zlib.deflateReset.restype = ctypes.c_int
+_zlib.deflateReset.argtypes = [
+    ctypes.c_void_p,  # strm
+]
+
+
+def deflateReset(strm):
+    return _zlib.deflateReset(ctypes.addressof(strm))
+
+
+_zlib.deflateParams.restype = ctypes.c_int
+_zlib.deflateParams.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_int,  # strategy
+    ctypes.c_int,  # level
+]
+
+
+def deflateParams(strm, strategy, level):
+    return _zlib.deflateParams(ctypes.addressof(strm), strategy, level)
+
+
+_zlib.deflateTune.restype = ctypes.c_int
+_zlib.deflateTune.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_int,  # good_length
+    ctypes.c_int,  # max_lazy
+    ctypes.c_int,  # nice_length
+    ctypes.c_int,  # max_chain
+]
+
+
+def deflateTune(strm, good_length, max_lazy, nice_length, max_chain):
+    return _zlib.deflateTune(
+        ctypes.addressof(strm), good_length, max_lazy, nice_length, max_chain)
+
+
+_zlib.deflateBound.restype = ctypes.c_ulong
+_zlib.deflateBound.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_ulong,  # sourceLen
+]
+
+
+def deflateBound(strm, sourceLen):
+    return _zlib.deflateBound(ctypes.addressof(strm), sourceLen)
+
+
+_zlib.deflatePending.restype = ctypes.c_int
+_zlib.deflatePending.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_void_p,  # pending
+    ctypes.c_void_p,  # bits
+]
+
+
+class _c_uint_wrapper(ctypes.Structure):
+    _fields_ = [
+        ('v', ctypes.c_uint),
+    ]
+
+
+class _c_int_wrapper(ctypes.Structure):
+    _fields_ = [
+        ('v', ctypes.c_int),
+    ]
+
+
+def deflatePending(strm):
+    pending = _c_uint_wrapper()
+    bits = _c_int_wrapper()
+    ret = _zlib.deflatePending(
+        ctypes.addressof(strm),
+        ctypes.addressof(pending),
+        ctypes.addressof(bits))
+    return ret, pending.v, bits.v
+
+
+_zlib.deflatePrime.restype = ctypes.c_int
+_zlib.deflatePrime.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_int,  # bits
+    ctypes.c_int,  # value
+]
+
+
+def deflatePrime(strm, bits, value):
+    return _zlib.deflatePrime(ctypes.addressof(strm), bits, value)
+
+
 _zlib.inflateInit2_.restype = ctypes.c_int
 _zlib.inflateInit2_.argtypes = [
     ctypes.c_void_p,  # strm
@@ -182,33 +330,73 @@ def inflateSetDictionary(strm, dictionary, dictLength):
         ctypes.addressof(strm), dictionary, dictLength)
 
 
-_zlib.inflate.restype = ctypes.c_int
-_zlib.inflate.argtypes = [
-    ctypes.c_void_p,  # strm
-    ctypes.c_int,  # flush
+_zlib.inflateSync.restype = ctypes.c_int
+_zlib.inflateSync.argtypes = [
+    ctypes.c_void_p,
 ]
 
 
-def inflate(strm, flush):
-    return _zlib.inflate(ctypes.addressof(strm), flush)
+def inflateSync(strm):
+    return _zlib.inflateSync(ctypes.addressof(strm))
 
 
-_zlib.inflateEnd.restype = ctypes.c_int
-_zlib.inflateEnd.argtypes = [
+_zlib.inflateCopy.restype = ctypes.c_int
+_zlib.inflateCopy.argtypes = [
+    ctypes.c_void_p,  # dest
+    ctypes.c_void_p,  # source
+]
+
+
+def inflateCopy(dest, source):
+    return _zlib.inflateCopy(ctypes.addressof(dest), ctypes.addressof(source))
+
+
+_zlib.inflateReset.restype = ctypes.c_int
+_zlib.inflateReset.argtypes = [
     ctypes.c_void_p,  # strm
 ]
 
 
-def inflateEnd(strm):
-    return _zlib.inflateEnd(ctypes.addressof(strm))
+def inflateReset(strm):
+    return _zlib.inflateReset(ctypes.addressof(strm))
 
 
-_zlib.deflateBound.restype = ctypes.c_ulong
-_zlib.deflateBound.argtypes = [
+_zlib.inflateReset2.restype = ctypes.c_int
+_zlib.inflateReset2.argtypes = [
     ctypes.c_void_p,  # strm
-    ctypes.c_ulong,  # sourceLen
+    ctypes.c_int,  # windowBits
 ]
 
 
-def deflateBound(strm, sourceLen):
-    return _zlib.deflateBound(ctypes.addressof(strm), sourceLen)
+def inflateReset2(strm, windowBits):
+    return _zlib.inflateReset2(ctypes.addressof(strm), windowBits)
+
+
+_zlib.inflatePrime.restype = ctypes.c_int
+_zlib.inflatePrime.argtypes = [
+    ctypes.c_void_p,  # strm
+    ctypes.c_int,  # bits
+    ctypes.c_int,  # value
+]
+
+
+def inflatePrime(strm, bits, value):
+    return _zlib.inflatePrime(ctypes.addressof(strm), bits, value)
+
+
+_zlib.inflateMark.restype = ctypes.c_long
+_zlib.inflateMark.argtypes = [
+    ctypes.c_void_p,  # strm
+]
+
+
+def inflateMark(strm):
+    return _zlib.inflateMark(ctypes.addressof(strm))
+
+
+_zlib.zlibCompileFlags.restype = ctypes.c_ulong
+_zlib.zlibCompileFlags.argtypes = []
+
+
+def zlibCompileFlags():
+    return _zlib.zlibCompileFlags()

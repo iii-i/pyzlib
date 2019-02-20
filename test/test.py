@@ -3,8 +3,16 @@ import subprocess
 import tempfile
 import unittest
 
+import pyzlib
+
 
 class TestCase(unittest.TestCase):
+    def test_version(self):
+        print(pyzlib.zlibVersion())
+
+    def test_compile_flags(self):
+        print(hex(pyzlib.zlibCompileFlags()))
+
     def test_inflate_deflate(self):
         with tempfile.TemporaryFile() as ifp:
             data = b'\n'.join([str(x).encode() for x in range(5000)])
