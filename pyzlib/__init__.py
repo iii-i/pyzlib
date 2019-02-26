@@ -65,7 +65,7 @@ Z_UNKNOWN = 2
 
 Z_DEFLATED = 8
 
-Z_NULL = 0
+Z_NULL = None
 
 _zlib_name = ctypes.util.find_library('z')
 if _zlib_name is None:
