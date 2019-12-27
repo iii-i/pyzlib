@@ -7,6 +7,7 @@ import os
 import subprocess
 import tempfile
 import unittest
+import zlib
 
 import parameterized
 import pyzlib
@@ -285,6 +286,59 @@ class TestCase(unittest.TestCase):
                                     len(dict3))
                                 self.assertEqual(pyzlib.Z_OK, err)
                 self.assertEqual(buf2 + buf4, inflated)
+
+    def test_compress(self):
+        dest = bytearray(pyzlib.compressBound(4096))
+        source = bytearray(b'A' * 4096)
+        err, dest_len = pyzlib.compress(
+            self._addressof_bytearray(dest),
+            len(dest),
+            self._addressof_bytearray(source),
+            len(source))
+        self.assertEqual(pyzlib.Z_OK, err)
+        self.assertLessEqual(dest_len, len(dest))
+        self.assertEqual(source, zlib.decompress(dest[:dest_len]))
+
+    @parameterized.parameterized.expand(((level,) for level in range(1, 10)))
+    def test_compress2(self, level):
+        dest = bytearray(128)
+        source = bytearray(b'A' * 4096)
+        err, dest_len = pyzlib.compress2(
+            self._addressof_bytearray(dest),
+            len(dest),
+            self._addressof_bytearray(source),
+            len(source),
+            level)
+        self.assertEqual(pyzlib.Z_OK, err)
+        self.assertLessEqual(dest_len, len(dest))
+        self.assertEqual(source, zlib.decompress(dest[:dest_len]))
+
+    def test_uncompress(self):
+        plain = bytearray(b'A' * 4096)
+        source = bytearray(zlib.compress(plain))
+        dest = bytearray(len(plain))
+        err, dest_len = pyzlib.uncompress(
+            self._addressof_bytearray(dest),
+            len(dest),
+            self._addressof_bytearray(source),
+            len(source))
+        self.assertEqual(pyzlib.Z_OK, err)
+        self.assertLessEqual(dest_len, len(dest))
+        self.assertEqual(plain, dest)
+
+    def test_uncompress2(self):
+        plain = bytearray(b'A' * 4096)
+        source = bytearray(zlib.compress(plain))
+        dest = bytearray(len(plain))
+        err, dest_len, source_len = pyzlib.uncompress2(
+            self._addressof_bytearray(dest),
+            len(dest),
+            self._addressof_bytearray(source),
+            len(source))
+        self.assertEqual(pyzlib.Z_OK, err)
+        self.assertLessEqual(dest_len, len(dest))
+        self.assertEqual(source_len, len(source))
+        self.assertEqual(plain, dest)
 
 
 if __name__ == '__main__':

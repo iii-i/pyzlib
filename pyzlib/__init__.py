@@ -280,6 +280,12 @@ class _c_int_wrapper(ctypes.Structure):
     ]
 
 
+class _c_ulong_wrapper(ctypes.Structure):
+    _fields_ = [
+        ('v', ctypes.c_ulong),
+    ]
+
+
 def deflatePending(strm):
     pending = _c_uint_wrapper()
     bits = _c_int_wrapper()
@@ -400,3 +406,97 @@ _zlib.zlibCompileFlags.argtypes = []
 
 def zlibCompileFlags():
     return _zlib.zlibCompileFlags()
+
+
+_zlib.compress.restype = ctypes.c_int
+_zlib.compress.argtypes = [
+    ctypes.c_void_p,  # dest
+    ctypes.c_void_p,  # destLen
+    ctypes.c_void_p,  # source
+    ctypes.c_ulong,  # sourceLen
+]
+
+
+def compress(dest, destLen, source, sourceLen):
+    dest_len_buf = _c_ulong_wrapper()
+    dest_len_buf.v = destLen
+    ret = _zlib.compress(
+        dest,
+        ctypes.addressof(dest_len_buf),
+        source,
+        sourceLen)
+    return ret, dest_len_buf.v
+
+
+_zlib.compress2.restype = ctypes.c_int
+_zlib.compress2.argtypes = [
+    ctypes.c_void_p,  # dest
+    ctypes.c_void_p,  # destLen
+    ctypes.c_void_p,  # source
+    ctypes.c_ulong,  # sourceLen
+    ctypes.c_int,  # level
+]
+
+
+def compress2(dest, destLen, source, sourceLen, level):
+    dest_len_buf = _c_ulong_wrapper()
+    dest_len_buf.v = destLen
+    ret = _zlib.compress2(
+        dest,
+        ctypes.addressof(dest_len_buf),
+        source,
+        sourceLen,
+        level)
+    return ret, dest_len_buf.v
+
+
+_zlib.compressBound.restype = ctypes.c_ulong
+_zlib.compressBound.argtypes = [
+    ctypes.c_ulong,  # sourceLen
+]
+
+
+def compressBound(sourceLen):
+    return _zlib.compressBound(sourceLen)
+
+
+_zlib.uncompress.restype = ctypes.c_int
+_zlib.uncompress.argtypes = [
+    ctypes.c_void_p,  # dest
+    ctypes.c_void_p,  # destLen
+    ctypes.c_void_p,  # source
+    ctypes.c_ulong,  # sourceLen
+]
+
+
+def uncompress(dest, destLen, source, sourceLen):
+    dest_len_buf = _c_ulong_wrapper()
+    dest_len_buf.v = destLen
+    ret = _zlib.uncompress(
+        dest,
+        ctypes.addressof(dest_len_buf),
+        source,
+        sourceLen)
+    return ret, dest_len_buf.v
+
+
+_zlib.uncompress2.restype = ctypes.c_int
+_zlib.uncompress2.argtypes = [
+    ctypes.c_void_p,  # dest
+    ctypes.c_void_p,  # destLen
+    ctypes.c_void_p,  # source
+    ctypes.c_void_p,  # sourceLen
+]
+
+
+def uncompress2(dest, destLen, source, sourceLen):
+    dest_len_buf = _c_ulong_wrapper()
+    dest_len_buf.v = destLen
+    source_len_buf = _c_ulong_wrapper()
+    source_len_buf.v = sourceLen
+    ret = _zlib.uncompress2(
+        dest,
+        ctypes.addressof(dest_len_buf),
+        source,
+        ctypes.addressof(source_len_buf))
+    return ret, dest_len_buf.v, source_len_buf.v
