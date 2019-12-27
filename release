@@ -1,6 +1,13 @@
 #!/bin/sh
 set -e -u -x
 cd "$(dirname "$0")"
+
+# style check
+flake8 $(git ls-files "*.py")
+
+# test
+PYTHONPATH="$PWD" python3 -m unittest discover
+
 rm -rf dist
 python3 setup.py sdist bdist_wheel
 twine upload --username iiilinuxibmcom dist/pyzlib-*-py3-none-any.whl
