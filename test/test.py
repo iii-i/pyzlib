@@ -340,6 +340,58 @@ class TestCase(unittest.TestCase):
         self.assertEqual(source_len, len(source))
         self.assertEqual(plain, dest)
 
+    @staticmethod
+    @contextlib.contextmanager
+    def limit_avail_in(strm, max_size):
+        avail_in0 = strm.avail_in
+        avain_in1 = min(avail_in0, max_size)
+        strm.avail_in = avain_in1
+        yield
+        consumed = avain_in1 - strm.avail_in
+        strm.avail_in = avail_in0 - consumed
+
+    def test_deflate_params(self):
+        gen = Gen(gen_random(numpy.random.RandomState(2097987671)))
+        plain = gen(1024 * 1024)
+        dest = bytearray(len(plain) * 2)
+        chunk_size = len(plain) // 400
+        with self._make_deflate_stream() as strm:
+            strm.next_in = self._addressof_bytearray(plain)
+            strm.avail_in = len(plain)
+            strm.next_out = self._addressof_bytearray(dest)
+            strm.avail_out = len(dest)
+            for level1 in range(10):
+                for level2 in range(10):
+                    with self.limit_avail_in(strm, chunk_size):
+                        err = pyzlib.deflateParams(
+                            strm, level1, pyzlib.Z_DEFAULT_STRATEGY)
+                        self.assertEqual(pyzlib.Z_OK, err)
+                    with self.limit_avail_in(strm, chunk_size):
+                        err = pyzlib.deflate(
+                            strm, pyzlib.Z_NO_FLUSH)
+                        self.assertEqual(pyzlib.Z_OK, err)
+                    with self.limit_avail_in(strm, chunk_size):
+                        err = pyzlib.deflateParams(
+                            strm, level2, pyzlib.Z_DEFAULT_STRATEGY)
+                        self.assertEqual(pyzlib.Z_OK, err)
+                    with self.limit_avail_in(strm, chunk_size):
+                        err = pyzlib.deflate(
+                            strm, pyzlib.Z_NO_FLUSH)
+                        self.assertEqual(pyzlib.Z_OK, err)
+            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
+            self.assertEqual(pyzlib.Z_STREAM_END, err)
+            compressed_size = len(dest) - strm.avail_out
+        plain2 = bytearray(len(plain))
+        with self._make_inflate_stream() as strm:
+            strm.next_in = self._addressof_bytearray(dest)
+            strm.avail_in = compressed_size
+            strm.next_out = self._addressof_bytearray(plain2)
+            strm.avail_out = len(plain2)
+            err = pyzlib.inflate(strm, pyzlib.Z_NO_FLUSH)
+            self.assertEqual(pyzlib.Z_STREAM_END, err)
+            self.assertEqual(0, strm.avail_out)
+            self.assertEqual(plain, plain2)
+
 
 if __name__ == '__main__':
     unittest.main()
