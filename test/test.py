@@ -2,8 +2,8 @@
 import contextlib
 import ctypes
 import itertools
-import numpy
 import os
+import random
 import subprocess
 import tempfile
 import unittest
@@ -37,7 +37,7 @@ def gen_zeros_ones(r):
 
 def gen_random(r):
     while True:
-        yield bytes(r.randint(0, 255, 4096, numpy.ubyte))
+        yield bytes(r.getrandbits(8) for _ in range(4096))
 
 
 class Gen(object):
@@ -215,7 +215,7 @@ class TestCase(unittest.TestCase):
         itertools.product(*([SET_DICTIONARY_SIZES] * 4)))
     def test_set_dictionary(
             self, dict1_size, buf2_size, dict3_size, buf4_size):
-        gen = Gen(gen_random(numpy.random.RandomState(2024749321)))
+        gen = Gen(gen_random(random.Random(2024749321)))
         with tempfile.NamedTemporaryFile() as zfp:
             with self._make_deflate_stream(raw=True) as strm:
                 dict1 = self._set_dictionary(strm, gen, dict1_size)
@@ -351,7 +351,7 @@ class TestCase(unittest.TestCase):
         strm.avail_in = avail_in0 - consumed
 
     def test_deflate_params(self):
-        gen = Gen(gen_random(numpy.random.RandomState(2097987671)))
+        gen = Gen(gen_random(random.Random(2097987671)))
         plain = gen(1024 * 1024)
         dest = bytearray(len(plain) * 2)
         chunk_size = len(plain) // 400
