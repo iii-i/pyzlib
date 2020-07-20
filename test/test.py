@@ -183,10 +183,11 @@ class TestCase(unittest.TestCase):
             strm.avail_out = len(zbuf)
             err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
             self.assertEqual(pyzlib.Z_STREAM_END, err)
+            zbuf_len = len(zbuf) - strm.avail_out
         value, zbuf_pos = self._shl(zbuf, bits)
         with self._make_inflate_stream(raw=True) as strm:
             strm.next_in = self._addressof_string_buffer(zbuf, offset=zbuf_pos)
-            strm.avail_in = len(zbuf) - zbuf_pos
+            strm.avail_in = zbuf_len - zbuf_pos
             buf = ctypes.create_string_buffer(len(buf))
             strm.next_out = self._addressof_string_buffer(buf)
             strm.avail_out = len(buf)
