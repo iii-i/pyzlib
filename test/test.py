@@ -351,6 +351,18 @@ class TestCase(unittest.TestCase):
         consumed = avain_in1 - strm.avail_in
         strm.avail_in = avail_in0 - consumed
 
+    def _check_inflate(self, dest, compressed_size, plain):
+        plain2 = bytearray(len(plain))
+        with self._make_inflate_stream() as strm:
+            strm.next_in = self._addressof_bytearray(dest)
+            strm.avail_in = compressed_size
+            strm.next_out = self._addressof_bytearray(plain2)
+            strm.avail_out = len(plain2)
+            err = pyzlib.inflate(strm, pyzlib.Z_NO_FLUSH)
+            self.assertEqual(pyzlib.Z_STREAM_END, err)
+            self.assertEqual(0, strm.avail_out)
+            self.assertEqual(plain, plain2)
+
     def test_deflate_params(self):
         gen = Gen(gen_random(random.Random(2097987671)))
         plain = gen(1024 * 1024)
@@ -383,16 +395,7 @@ class TestCase(unittest.TestCase):
             err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
             self.assertEqual(pyzlib.Z_STREAM_END, err)
             compressed_size = len(dest) - strm.avail_out
-        plain2 = bytearray(len(plain))
-        with self._make_inflate_stream() as strm:
-            strm.next_in = self._addressof_bytearray(dest)
-            strm.avail_in = compressed_size
-            strm.next_out = self._addressof_bytearray(plain2)
-            strm.avail_out = len(plain2)
-            err = pyzlib.inflate(strm, pyzlib.Z_NO_FLUSH)
-            self.assertEqual(pyzlib.Z_STREAM_END, err)
-            self.assertEqual(0, strm.avail_out)
-            self.assertEqual(plain, plain2)
+        self._check_inflate(dest, compressed_size, plain)
 
     def test_deflate_reset(self):
         strm = pyzlib.z_stream(
@@ -415,6 +418,24 @@ class TestCase(unittest.TestCase):
                 pyzlib.deflateReset(strm)
         finally:
             pyzlib.deflateEnd(strm)
+
+    def test_small_out(self):
+        plain = bytearray(b'\x05\x4e')
+        dest = bytearray(16)
+        sizeof_zlib_header = 2
+        with self._make_deflate_stream() as strm:
+            strm.next_in = self._addressof_bytearray(plain)
+            strm.avail_in = len(plain)
+            strm.next_out = self._addressof_bytearray(dest)
+            strm.avail_out = sizeof_zlib_header
+            err = pyzlib.deflate(strm, pyzlib.Z_PARTIAL_FLUSH)
+            assert err == pyzlib.Z_OK
+            assert strm.avail_out == 0
+            strm.avail_out = len(dest) - sizeof_zlib_header
+            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
+            assert err == pyzlib.Z_STREAM_END
+            compressed_size = len(dest) - strm.avail_out
+        self._check_inflate(dest, compressed_size, plain)
 
 
 if __name__ == '__main__':
