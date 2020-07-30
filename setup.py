@@ -5,7 +5,7 @@ with open('README.rst') as fp:
 
 setuptools.setup(
     name='pyzlib',
-    version='0.1.8',
+    version='0.1.9',
     author='Ilya Leoshkevich',
     author_email='iii@linux.ibm.com',
     description='Thin Python 3 wrapper around zlib',

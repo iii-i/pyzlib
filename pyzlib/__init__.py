@@ -225,13 +225,13 @@ def deflateReset(strm):
 _zlib.deflateParams.restype = ctypes.c_int
 _zlib.deflateParams.argtypes = [
     ctypes.c_void_p,  # strm
-    ctypes.c_int,  # strategy
     ctypes.c_int,  # level
+    ctypes.c_int,  # strategy
 ]
 
 
-def deflateParams(strm, strategy, level):
-    return _zlib.deflateParams(ctypes.addressof(strm), strategy, level)
+def deflateParams(strm, level, strategy):
+    return _zlib.deflateParams(ctypes.addressof(strm), level, strategy)
 
 
 _zlib.deflateTune.restype = ctypes.c_int
