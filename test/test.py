@@ -361,14 +361,25 @@ class TestCase(unittest.TestCase):
         consumed = avail_out1 - strm.avail_out
         strm.avail_out = avail_out0 - consumed
 
-    def _check_inflate(self, dest, compressed_size, plain):
+    def _check_inflate(
+            self, dest, compressed_size, plain, raw=False, dictionary=None):
         plain2 = bytearray(len(plain))
-        with self._make_inflate_stream() as strm:
+        with self._make_inflate_stream(raw=raw) as strm:
+            if raw and dictionary is not None:
+                err = pyzlib.inflateSetDictionary(
+                    strm, dictionary, len(dictionary))
+                self.assertEqual(pyzlib.Z_OK, err)
             strm.next_in = self._addressof_bytearray(dest)
             strm.avail_in = compressed_size
             strm.next_out = self._addressof_bytearray(plain2)
             strm.avail_out = len(plain2)
             err = pyzlib.inflate(strm, pyzlib.Z_NO_FLUSH)
+            if not raw and dictionary is not None:
+                self.assertEqual(pyzlib.Z_NEED_DICT, err)
+                err = pyzlib.inflateSetDictionary(
+                    strm, dictionary, len(dictionary))
+                self.assertEqual(pyzlib.Z_OK, err)
+                err = pyzlib.inflate(strm, pyzlib.Z_NO_FLUSH)
             self.assertEqual(pyzlib.Z_STREAM_END, err)
             self.assertEqual(0, strm.avail_out)
             self.assertEqual(plain, plain2)
@@ -514,6 +525,40 @@ class TestCase(unittest.TestCase):
             err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
             self.assertEqual(pyzlib.Z_STREAM_END, err)
         self._check_inflate(dest, len(dest) - strm.avail_out, plain)
+
+    def test_stored_dictionary(self):
+        plain = bytearray(b'\x2d')
+        dest = bytearray(130)
+        with self._make_deflate_stream(
+                raw=True,
+                level=pyzlib.Z_BEST_SPEED,
+        ) as strm:
+            strm.next_in = self._addressof_bytearray(plain)
+            strm.avail_in = len(plain)
+            strm.next_out = self._addressof_bytearray(dest)
+            strm.avail_out = len(dest)
+
+            dictionary = b'\xd7'
+            err = pyzlib.deflateSetDictionary(
+                strm, dictionary, len(dictionary))
+            self.assertEqual(pyzlib.Z_OK, err)
+
+            err = pyzlib.deflateParams(
+                strm,
+                level=pyzlib.Z_NO_COMPRESSION,
+                strategy=pyzlib.Z_DEFAULT_STRATEGY,
+            )
+            self.assertEqual(pyzlib.Z_OK, err)
+
+            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
+            self.assertEqual(pyzlib.Z_STREAM_END, err)
+        self._check_inflate(
+            dest=dest,
+            compressed_size=len(dest) - strm.avail_out,
+            plain=plain,
+            raw=True,
+            dictionary=dictionary,
+        )
 
 
 if __name__ == '__main__':
