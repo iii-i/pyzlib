@@ -602,6 +602,51 @@ class TestCase(unittest.TestCase):
             dictionary=dictionary,
         )
 
+    def test_set_dictionary4(self):
+        plain = bytearray(b'\x00\x3a\x00\x00\x00')
+        dest = bytearray(266)
+        with self._make_deflate_stream(
+                level=pyzlib.Z_BEST_SPEED,
+                mem_level=5,
+                strategy=pyzlib.Z_FIXED,
+        ) as strm:
+            strm.next_in = self._addressof_bytearray(plain)
+            strm.avail_in = len(plain)
+            strm.next_out = self._addressof_bytearray(dest)
+            strm.avail_out = len(dest)
+
+            dictionary = b'\x00'
+            err = pyzlib.deflateSetDictionary(
+                strm, dictionary, len(dictionary))
+            self.assertEqual(pyzlib.Z_OK, err)
+
+            with self.limit_avail_in(strm, 2):
+                with self.limit_avail_out(strm, 3):
+                    err = pyzlib.deflateParams(
+                        strm,
+                        level=pyzlib.Z_BEST_SPEED,
+                        strategy=pyzlib.Z_FILTERED,
+                    )
+                    self.assertIn(err, (pyzlib.Z_OK, pyzlib.Z_BUF_ERROR))
+
+            with self.limit_avail_in(strm, 2):
+                with self.limit_avail_out(strm, 262):
+                    err = pyzlib.deflateParams(
+                        strm,
+                        level=2,
+                        strategy=pyzlib.Z_RLE,
+                    )
+                    self.assertEqual(pyzlib.Z_OK, err)
+
+            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
+            self.assertEqual(pyzlib.Z_STREAM_END, err)
+        self._check_inflate(
+            dest=dest,
+            compressed_size=len(dest) - strm.avail_out,
+            plain=plain,
+            dictionary=dictionary,
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
