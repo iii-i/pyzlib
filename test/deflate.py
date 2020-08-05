@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import ctypes
 import sys
 
@@ -6,11 +7,26 @@ import pyzlib
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--window-bits', type=int, default=15)
+    args = parser.parse_args()
     strm = pyzlib.z_stream(
         zalloc=pyzlib.Z_NULL, free=pyzlib.Z_NULL, opaque=pyzlib.Z_NULL)
-    rc = pyzlib.deflateInit(strm, pyzlib.Z_DEFAULT_COMPRESSION)
+    if args.window_bits == 15:
+        init_func_name = 'deflateInit'
+        rc = pyzlib.deflateInit(strm, pyzlib.Z_DEFAULT_COMPRESSION)
+    else:
+        init_func_name = 'deflateInit2'
+        rc = pyzlib.deflateInit2(
+            strm=strm,
+            level=pyzlib.Z_DEFAULT_COMPRESSION,
+            method=pyzlib.Z_DEFLATED,
+            windowBits=args.window_bits,
+            memLevel=8,
+            strategy=pyzlib.Z_DEFAULT_STRATEGY,
+        )
     if rc != pyzlib.Z_OK:
-        raise Exception('deflateInit() failed with error {}'.format(rc))
+        raise Exception('{}() failed with error {}'.format(init_func_name, rc))
     stream_end = False
     obuf = ctypes.create_string_buffer(8192)
     while not stream_end:

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import ctypes
 import sys
 
@@ -6,12 +7,20 @@ import pyzlib
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--window-bits', type=int, default=15)
+    args = parser.parse_args()
     strm = pyzlib.z_stream(
         next_in=pyzlib.Z_NULL, avail_in=0,
         zalloc=pyzlib.Z_NULL, free=pyzlib.Z_NULL, opaque=pyzlib.Z_NULL)
-    rc = pyzlib.inflateInit(strm)
+    if args.window_bits == 15:
+        init_func_name = 'inflateInit'
+        rc = pyzlib.inflateInit(strm)
+    else:
+        init_func_name = 'inflateInit2'
+        rc = pyzlib.inflateInit2(strm, args.window_bits)
     if rc != pyzlib.Z_OK:
-        raise Exception('inflateInit() failed with error {}'.format(rc))
+        raise Exception('{}() failed with error {}'.format(init_func_name, rc))
     stream_end = False
     obuf = ctypes.create_string_buffer(16384)
     while not stream_end:
