@@ -68,6 +68,11 @@ def gen_mix(r):
         yield r.choice(gs)(r.randint(1, 65536))
 
 
+WB_RAW = -15
+WB_ZLIB = 15
+WB_GZIP = 31
+
+
 class TestCase(unittest.TestCase):
     def test_version(self):
         print(pyzlib.zlibVersion())
@@ -101,7 +106,7 @@ class TestCase(unittest.TestCase):
     @staticmethod
     @contextlib.contextmanager
     def _make_deflate_stream(
-            raw=False,
+            window_bits=WB_ZLIB,
             level=pyzlib.Z_DEFAULT_COMPRESSION,
             mem_level=8,
             strategy=pyzlib.Z_DEFAULT_STRATEGY,
@@ -109,12 +114,14 @@ class TestCase(unittest.TestCase):
         strm = pyzlib.z_stream(
             zalloc=pyzlib.Z_NULL, free=pyzlib.Z_NULL,
             opaque=pyzlib.Z_NULL)
-        if raw:
+        if window_bits != WB_ZLIB or \
+                mem_level != 8 or \
+                strategy != pyzlib.Z_DEFAULT_STRATEGY:
             err = pyzlib.deflateInit2(
                 strm,
                 level=level,
                 method=pyzlib.Z_DEFLATED,
-                windowBits=-15,
+                windowBits=window_bits,
                 memLevel=mem_level,
                 strategy=strategy,
             )
@@ -131,13 +138,13 @@ class TestCase(unittest.TestCase):
 
     @staticmethod
     @contextlib.contextmanager
-    def _make_inflate_stream(raw=False):
+    def _make_inflate_stream(window_bits=WB_ZLIB):
         strm = pyzlib.z_stream(
             next_in=pyzlib.Z_NULL, avail_in=0,
             zalloc=pyzlib.Z_NULL, free=pyzlib.Z_NULL,
             opaque=pyzlib.Z_NULL)
-        if raw:
-            err = pyzlib.inflateInit2(strm, windowBits=-15)
+        if window_bits != WB_ZLIB:
+            err = pyzlib.inflateInit2(strm, windowBits=window_bits)
         else:
             err = pyzlib.inflateInit(strm)
         if err != pyzlib.Z_OK:
@@ -179,7 +186,7 @@ class TestCase(unittest.TestCase):
 
     @parameterized.parameterized.expand(((bits,) for bits in range(0, 17)))
     def test_inflate_prime(self, bits):
-        with self._make_deflate_stream(raw=True) as strm:
+        with self._make_deflate_stream(window_bits=WB_RAW) as strm:
             buf = ctypes.create_string_buffer(b'hello')
             strm.next_in = self._addressof_string_buffer(buf)
             strm.avail_in = len(buf)
@@ -191,7 +198,7 @@ class TestCase(unittest.TestCase):
             self.assertEqual(pyzlib.Z_STREAM_END, err)
             zbuf_len = len(zbuf) - strm.avail_out
         value, zbuf_pos = self._shl(zbuf, bits)
-        with self._make_inflate_stream(raw=True) as strm:
+        with self._make_inflate_stream(window_bits=WB_RAW) as strm:
             strm.next_in = self._addressof_string_buffer(zbuf, offset=zbuf_pos)
             strm.avail_in = zbuf_len - zbuf_pos
             buf = ctypes.create_string_buffer(len(buf))
@@ -224,7 +231,7 @@ class TestCase(unittest.TestCase):
             self, dict1_size, buf2_size, dict3_size, buf4_size):
         gen = Gen(gen_random(random.Random(2024749321)))
         with tempfile.NamedTemporaryFile() as zfp:
-            with self._make_deflate_stream(raw=True) as strm:
+            with self._make_deflate_stream(window_bits=WB_RAW) as strm:
                 dict1 = self._set_dictionary(strm, gen, dict1_size)
                 buf2 = self._gen_buf(gen, buf2_size, dict1)
                 strm.next_in = self._addressof_bytearray(buf2)
@@ -260,7 +267,7 @@ class TestCase(unittest.TestCase):
             zfp.flush()
             zfp.seek(0)
             inflated = bytearray()
-            with self._make_inflate_stream(raw=True) as strm:
+            with self._make_inflate_stream(window_bits=WB_RAW) as strm:
                 err = pyzlib.inflateSetDictionary(
                     strm, self._addressof_bytearray(dict1), len(dict1))
                 self.assertEqual(pyzlib.Z_OK, err)
@@ -368,10 +375,16 @@ class TestCase(unittest.TestCase):
         strm.avail_out = avail_out0 - consumed
 
     def _check_inflate(
-            self, dest, compressed_size, plain, raw=False, dictionary=None):
+            self,
+            dest,
+            compressed_size,
+            plain,
+            window_bits=WB_ZLIB,
+            dictionary=None,
+    ):
         plain2 = bytearray(len(plain))
-        with self._make_inflate_stream(raw=raw) as strm:
-            if raw and dictionary is not None:
+        with self._make_inflate_stream(window_bits=window_bits) as strm:
+            if window_bits == WB_RAW and dictionary is not None:
                 err = pyzlib.inflateSetDictionary(
                     strm, dictionary, len(dictionary))
                 self.assertEqual(pyzlib.Z_OK, err)
@@ -380,7 +393,7 @@ class TestCase(unittest.TestCase):
             strm.next_out = self._addressof_bytearray(plain2)
             strm.avail_out = len(plain2)
             err = pyzlib.inflate(strm, pyzlib.Z_NO_FLUSH)
-            if not raw and dictionary is not None:
+            if window_bits == WB_ZLIB and dictionary is not None:
                 self.assertEqual(pyzlib.Z_NEED_DICT, err)
                 err = pyzlib.inflateSetDictionary(
                     strm, dictionary, len(dictionary))
@@ -536,7 +549,7 @@ class TestCase(unittest.TestCase):
         plain = bytearray(b'\x2d')
         dest = bytearray(130)
         with self._make_deflate_stream(
-                raw=True,
+                window_bits=WB_RAW,
                 level=pyzlib.Z_BEST_SPEED,
         ) as strm:
             strm.next_in = self._addressof_bytearray(plain)
@@ -562,7 +575,7 @@ class TestCase(unittest.TestCase):
             dest=dest,
             compressed_size=len(dest) - strm.avail_out,
             plain=plain,
-            raw=True,
+            window_bits=WB_RAW,
             dictionary=dictionary,
         )
 
@@ -570,7 +583,7 @@ class TestCase(unittest.TestCase):
         plain = bytearray(b'\x00\x00\x00')
         dest = bytearray(134)
         with self._make_deflate_stream(
-                raw=True,
+                window_bits=WB_RAW,
                 level=pyzlib.Z_BEST_SPEED,
                 mem_level=1,
                 strategy=pyzlib.Z_FIXED,
@@ -598,7 +611,7 @@ class TestCase(unittest.TestCase):
             dest=dest,
             compressed_size=len(dest) - strm.avail_out,
             plain=plain,
-            raw=True,
+            window_bits=WB_RAW,
             dictionary=dictionary,
         )
 
@@ -645,6 +658,52 @@ class TestCase(unittest.TestCase):
             compressed_size=len(dest) - strm.avail_out,
             plain=plain,
             dictionary=dictionary,
+        )
+
+    def test_deflate_params2(self):
+        plain = bytearray(b'\xef')
+        dest = bytearray(392)
+        with self._make_deflate_stream(
+                window_bits=WB_GZIP,
+                level=pyzlib.Z_DEFAULT_COMPRESSION,
+                mem_level=1,
+                strategy=pyzlib.Z_DEFAULT_STRATEGY,
+        ) as strm:
+            strm.next_in = self._addressof_bytearray(plain)
+            strm.avail_in = len(plain)
+            strm.next_out = self._addressof_bytearray(dest)
+            strm.avail_out = len(dest)
+
+            with self.limit_avail_in(strm, 1):
+                with self.limit_avail_out(strm, 195):
+                    err = pyzlib.deflateParams(
+                        strm,
+                        level=pyzlib.Z_BEST_SPEED,
+                        strategy=pyzlib.Z_DEFAULT_STRATEGY,
+                    )
+                    self.assertIn(err, (pyzlib.Z_OK, pyzlib.Z_BUF_ERROR))
+
+            with self.limit_avail_in(strm, 1):
+                with self.limit_avail_out(strm, 195):
+                    err = pyzlib.deflate(strm, pyzlib.Z_NO_FLUSH)
+                    self.assertEqual(pyzlib.Z_OK, err)
+
+            with self.limit_avail_in(strm, 0):
+                with self.limit_avail_out(strm, 0):
+                    err = pyzlib.deflateParams(
+                        strm,
+                        level=pyzlib.Z_BEST_SPEED,
+                        strategy=pyzlib.Z_FILTERED,
+                    )
+                    self.assertIn(err, (pyzlib.Z_OK, pyzlib.Z_BUF_ERROR))
+
+            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
+            self.assertEqual(pyzlib.Z_STREAM_END, err)
+        self._check_inflate(
+            dest=dest,
+            compressed_size=len(dest) - strm.avail_out,
+            plain=plain,
+            window_bits=WB_GZIP,
         )
 
 
