@@ -74,6 +74,14 @@ WB_GZIP = 31
 
 
 class TestCase(unittest.TestCase):
+    def _assert_deflate_ok(self, strm, flush):
+        err = pyzlib.deflate(strm, flush)
+        self.assertIn(err, (pyzlib.Z_OK, pyzlib.Z_BUF_ERROR))
+
+    def _assert_deflate_stream_end(self, strm):
+        err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
+        self.assertEqual(pyzlib.Z_STREAM_END, err)
+
     def test_version(self):
         print(pyzlib.zlibVersion())
 
@@ -194,8 +202,7 @@ class TestCase(unittest.TestCase):
                 pyzlib.deflateBound(strm, strm.avail_in))
             strm.next_out = self._addressof_string_buffer(zbuf)
             strm.avail_out = len(zbuf)
-            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
-            self.assertEqual(pyzlib.Z_STREAM_END, err)
+            self._assert_deflate_stream_end(strm)
             zbuf_len = len(zbuf) - strm.avail_out
         value, zbuf_pos = self._shl(zbuf, bits)
         with self._make_inflate_stream(window_bits=WB_RAW) as strm:
@@ -242,8 +249,7 @@ class TestCase(unittest.TestCase):
                         ctypes.addressof(zbuf),
                         ctypes.c_char_p)
                     strm.avail_out = len(zbuf)
-                    err = pyzlib.deflate(strm, pyzlib.Z_BLOCK)
-                    self.assertEqual(pyzlib.Z_OK, err)
+                    self._assert_deflate_ok(strm, pyzlib.Z_BLOCK)
                     zfp.write(zbuf[:len(zbuf) - strm.avail_out])
                     if strm.avail_out != 0:
                         break
@@ -356,7 +362,7 @@ class TestCase(unittest.TestCase):
 
     @staticmethod
     @contextlib.contextmanager
-    def limit_avail_in(strm, max_size):
+    def _limit_avail_in(strm, max_size):
         avail_in0 = strm.avail_in
         avail_in1 = min(avail_in0, max_size)
         strm.avail_in = avail_in1
@@ -366,7 +372,7 @@ class TestCase(unittest.TestCase):
 
     @staticmethod
     @contextlib.contextmanager
-    def limit_avail_out(strm, max_size):
+    def _limit_avail_out(strm, max_size):
         avail_out0 = strm.avail_out
         avail_out1 = min(avail_out0, max_size)
         strm.avail_out = avail_out1
@@ -376,9 +382,9 @@ class TestCase(unittest.TestCase):
 
     @classmethod
     @contextlib.contextmanager
-    def limit_avail_in_out(cls, strm, max_avail_in, max_avail_out):
-        with cls.limit_avail_in(strm, max_avail_in):
-            with cls.limit_avail_out(strm, max_avail_out):
+    def _limit_avail_in_out(cls, strm, max_avail_in, max_avail_out):
+        with cls._limit_avail_in(strm, max_avail_in):
+            with cls._limit_avail_out(strm, max_avail_out):
                 yield
 
     def _check_inflate(
@@ -422,25 +428,20 @@ class TestCase(unittest.TestCase):
             strm.avail_out = len(dest)
             for level1 in range(10):
                 for level2 in range(10):
-                    with self.limit_avail_in(strm, chunk_size):
+                    with self._limit_avail_in(strm, chunk_size):
                         err = pyzlib.deflateParams(
                             strm, level1, pyzlib.Z_DEFAULT_STRATEGY)
                         self.assertEqual(pyzlib.Z_OK, err)
-                    with self.limit_avail_in(strm, chunk_size):
-                        err = pyzlib.deflate(
-                            strm, pyzlib.Z_NO_FLUSH)
-                        self.assertEqual(pyzlib.Z_OK, err)
-                    with self.limit_avail_in(strm, chunk_size):
+                    with self._limit_avail_in(strm, chunk_size):
+                        self._assert_deflate_ok(strm, pyzlib.Z_NO_FLUSH)
+                    with self._limit_avail_in(strm, chunk_size):
                         err = pyzlib.deflateParams(
                             strm, level2, pyzlib.Z_DEFAULT_STRATEGY)
                         msg = 'deflateParams({} -> {})'.format(level1, level2)
                         self.assertEqual(pyzlib.Z_OK, err, msg)
-                    with self.limit_avail_in(strm, chunk_size):
-                        err = pyzlib.deflate(
-                            strm, pyzlib.Z_NO_FLUSH)
-                        self.assertEqual(pyzlib.Z_OK, err)
-            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
-            self.assertEqual(pyzlib.Z_STREAM_END, err)
+                    with self._limit_avail_in(strm, chunk_size):
+                        self._assert_deflate_ok(strm, pyzlib.Z_NO_FLUSH)
+            self._assert_deflate_stream_end(strm)
             compressed_size = len(dest) - strm.avail_out
         self._check_inflate(dest, compressed_size, plain)
 
@@ -458,8 +459,7 @@ class TestCase(unittest.TestCase):
                 strm.avail_in = len(plain)
                 strm.next_out = self._addressof_bytearray(compressed)
                 strm.avail_out = len(compressed)
-                err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
-                self.assertEqual(pyzlib.Z_STREAM_END, err)
+                self._assert_deflate_stream_end(strm)
                 self.assertEqual(b'\x78\x01', compressed[0:2])
                 # deflateReset should preserve the compression level
                 pyzlib.deflateReset(strm)
@@ -475,12 +475,10 @@ class TestCase(unittest.TestCase):
             strm.avail_in = len(plain)
             strm.next_out = self._addressof_bytearray(dest)
             strm.avail_out = sizeof_zlib_header
-            err = pyzlib.deflate(strm, pyzlib.Z_PARTIAL_FLUSH)
-            self.assertEqual(pyzlib.Z_OK, err)
+            self._assert_deflate_ok(strm, pyzlib.Z_PARTIAL_FLUSH)
             self.assertEqual(0, strm.avail_out)
             strm.avail_out = len(dest) - sizeof_zlib_header
-            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
-            self.assertEqual(pyzlib.Z_STREAM_END, err)
+            self._assert_deflate_stream_end(strm)
             compressed_size = len(dest) - strm.avail_out
         self._check_inflate(dest, compressed_size, plain)
 
@@ -492,8 +490,7 @@ class TestCase(unittest.TestCase):
             strm.avail_in = 3
             strm.next_out = self._addressof_bytearray(dest)
             strm.avail_out = 1
-            err = pyzlib.deflate(strm, pyzlib.Z_PARTIAL_FLUSH)
-            self.assertEqual(pyzlib.Z_OK, err)
+            self._assert_deflate_ok(strm, pyzlib.Z_PARTIAL_FLUSH)
             consumed_in = 3 - strm.avail_in
             consumed_out = 1 - strm.avail_out
 
@@ -510,8 +507,7 @@ class TestCase(unittest.TestCase):
 
             strm.avail_in = len(plain) - consumed_in
             strm.avail_out = len(dest) - consumed_out
-            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
-            self.assertEqual(pyzlib.Z_STREAM_END, err)
+            self._assert_deflate_stream_end(strm)
             consumed_out = len(dest) - strm.avail_out
         self._check_inflate(dest, consumed_out, plain)
 
@@ -524,28 +520,25 @@ class TestCase(unittest.TestCase):
             strm.next_out = self._addressof_bytearray(dest)
             strm.avail_out = len(dest)
 
-            with self.limit_avail_in_out(strm, 1, 2):
-                err = pyzlib.deflate(strm, pyzlib.Z_PARTIAL_FLUSH)
-                self.assertEqual(pyzlib.Z_OK, err)
-            with self.limit_avail_in_out(strm, 1, 2):
+            with self._limit_avail_in_out(strm, 1, 2):
+                self._assert_deflate_ok(strm, pyzlib.Z_PARTIAL_FLUSH)
+            with self._limit_avail_in_out(strm, 1, 2):
                 err = pyzlib.deflateParams(
                     strm,
                     level=pyzlib.Z_BEST_SPEED,
                     strategy=pyzlib.Z_HUFFMAN_ONLY,
                 )
                 self.assertIn(err, (pyzlib.Z_OK, pyzlib.Z_BUF_ERROR))
-            with self.limit_avail_in_out(strm, 1, 2):
-                err = pyzlib.deflate(strm, pyzlib.Z_PARTIAL_FLUSH)
-                self.assertEqual(pyzlib.Z_OK, err)
-            with self.limit_avail_in_out(strm, 1, 2):
+            with self._limit_avail_in_out(strm, 1, 2):
+                self._assert_deflate_ok(strm, pyzlib.Z_PARTIAL_FLUSH)
+            with self._limit_avail_in_out(strm, 1, 2):
                 err = pyzlib.deflateParams(
                     strm,
                     level=pyzlib.Z_BEST_SPEED,
                     strategy=pyzlib.Z_DEFAULT_STRATEGY,
                 )
                 self.assertIn(err, (pyzlib.Z_OK, pyzlib.Z_BUF_ERROR))
-            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
-            self.assertEqual(pyzlib.Z_STREAM_END, err)
+            self._assert_deflate_stream_end(strm)
         self._check_inflate(dest, len(dest) - strm.avail_out, plain)
 
     def test_set_dictionary2(self):
@@ -572,8 +565,7 @@ class TestCase(unittest.TestCase):
             )
             self.assertEqual(pyzlib.Z_OK, err)
 
-            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
-            self.assertEqual(pyzlib.Z_STREAM_END, err)
+            self._assert_deflate_stream_end(strm)
         self._check_inflate(
             dest=dest,
             compressed_size=len(dest) - strm.avail_out,
@@ -608,8 +600,7 @@ class TestCase(unittest.TestCase):
             )
             self.assertEqual(pyzlib.Z_OK, err)
 
-            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
-            self.assertEqual(pyzlib.Z_STREAM_END, err)
+            self._assert_deflate_stream_end(strm)
         self._check_inflate(
             dest=dest,
             compressed_size=len(dest) - strm.avail_out,
@@ -636,7 +627,7 @@ class TestCase(unittest.TestCase):
                 strm, dictionary, len(dictionary))
             self.assertEqual(pyzlib.Z_OK, err)
 
-            with self.limit_avail_in_out(strm, 2, 3):
+            with self._limit_avail_in_out(strm, 2, 3):
                 err = pyzlib.deflateParams(
                     strm,
                     level=pyzlib.Z_BEST_SPEED,
@@ -644,7 +635,7 @@ class TestCase(unittest.TestCase):
                 )
                 self.assertIn(err, (pyzlib.Z_OK, pyzlib.Z_BUF_ERROR))
 
-            with self.limit_avail_in_out(strm, 2, 262):
+            with self._limit_avail_in_out(strm, 2, 262):
                 err = pyzlib.deflateParams(
                     strm,
                     level=2,
@@ -652,8 +643,7 @@ class TestCase(unittest.TestCase):
                 )
                 self.assertEqual(pyzlib.Z_OK, err)
 
-            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
-            self.assertEqual(pyzlib.Z_STREAM_END, err)
+            self._assert_deflate_stream_end(strm)
         self._check_inflate(
             dest=dest,
             compressed_size=len(dest) - strm.avail_out,
@@ -675,7 +665,7 @@ class TestCase(unittest.TestCase):
             strm.next_out = self._addressof_bytearray(dest)
             strm.avail_out = len(dest)
 
-            with self.limit_avail_in_out(strm, 1, 195):
+            with self._limit_avail_in_out(strm, 1, 195):
                 err = pyzlib.deflateParams(
                     strm,
                     level=pyzlib.Z_BEST_SPEED,
@@ -683,11 +673,10 @@ class TestCase(unittest.TestCase):
                 )
                 self.assertIn(err, (pyzlib.Z_OK, pyzlib.Z_BUF_ERROR))
 
-            with self.limit_avail_in_out(strm, 1, 195):
-                err = pyzlib.deflate(strm, pyzlib.Z_NO_FLUSH)
-                self.assertEqual(pyzlib.Z_OK, err)
+            with self._limit_avail_in_out(strm, 1, 195):
+                self._assert_deflate_ok(strm, pyzlib.Z_NO_FLUSH)
 
-            with self.limit_avail_in_out(strm, 0, 0):
+            with self._limit_avail_in_out(strm, 0, 0):
                 err = pyzlib.deflateParams(
                     strm,
                     level=pyzlib.Z_BEST_SPEED,
@@ -695,8 +684,7 @@ class TestCase(unittest.TestCase):
                 )
                 self.assertIn(err, (pyzlib.Z_OK, pyzlib.Z_BUF_ERROR))
 
-            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
-            self.assertEqual(pyzlib.Z_STREAM_END, err)
+            self._assert_deflate_stream_end(strm)
         self._check_inflate(
             dest=dest,
             compressed_size=len(dest) - strm.avail_out,
@@ -718,11 +706,10 @@ class TestCase(unittest.TestCase):
             strm.next_out = self._addressof_bytearray(dest)
             strm.avail_out = len(dest)
 
-            with self.limit_avail_in_out(strm, 2, 263):
-                err = pyzlib.deflate(strm, pyzlib.Z_NO_FLUSH)
-                self.assertEqual(pyzlib.Z_OK, err)
+            with self._limit_avail_in_out(strm, 2, 263):
+                self._assert_deflate_ok(strm, pyzlib.Z_NO_FLUSH)
 
-            with self.limit_avail_in_out(strm, 0, 1):
+            with self._limit_avail_in_out(strm, 0, 1):
                 err = pyzlib.deflateParams(
                     strm,
                     level=pyzlib.Z_BEST_SPEED,
@@ -730,15 +717,13 @@ class TestCase(unittest.TestCase):
                 )
                 self.assertIn(err, (pyzlib.Z_OK, pyzlib.Z_BUF_ERROR))
 
-            with self.limit_avail_in_out(strm, 2, 1):
-                err = pyzlib.deflate(strm, pyzlib.Z_PARTIAL_FLUSH)
-                self.assertEqual(pyzlib.Z_OK, err)
+            with self._limit_avail_in_out(strm, 2, 1):
+                self._assert_deflate_ok(strm, pyzlib.Z_PARTIAL_FLUSH)
 
-            with self.limit_avail_in_out(strm, 1, 259):
-                err = pyzlib.deflate(strm, pyzlib.Z_PARTIAL_FLUSH)
-                self.assertEqual(pyzlib.Z_OK, err)
+            with self._limit_avail_in_out(strm, 1, 259):
+                self._assert_deflate_ok(strm, pyzlib.Z_PARTIAL_FLUSH)
 
-            with self.limit_avail_in_out(strm, 0, 1):
+            with self._limit_avail_in_out(strm, 0, 1):
                 err = pyzlib.deflateParams(
                     strm,
                     level=3,
@@ -746,12 +731,66 @@ class TestCase(unittest.TestCase):
                 )
                 self.assertIn(err, (pyzlib.Z_OK, pyzlib.Z_BUF_ERROR))
 
-            with self.limit_avail_in_out(strm, 1, 259):
-                err = pyzlib.deflate(strm, pyzlib.Z_NO_FLUSH)
-                self.assertEqual(pyzlib.Z_OK, err)
+            with self._limit_avail_in_out(strm, 1, 259):
+                self._assert_deflate_ok(strm, pyzlib.Z_NO_FLUSH)
 
-            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
-            self.assertEqual(pyzlib.Z_STREAM_END, err)
+            self._assert_deflate_stream_end(strm)
+        self._check_inflate(
+            dest=dest,
+            compressed_size=len(dest) - strm.avail_out,
+            plain=plain,
+            window_bits=WB_GZIP,
+        )
+
+    def test_deflate_params4(self):
+        plain = bytearray(b'\x00\x00\xff\x00\x00\x00')
+        dest = bytearray(1042)
+        with self._make_deflate_stream(
+                window_bits=WB_GZIP,
+                level=pyzlib.Z_BEST_SPEED,
+                mem_level=1,
+                strategy=pyzlib.Z_FILTERED,
+        ) as strm:
+            strm.next_in = self._addressof_bytearray(plain)
+            strm.avail_in = len(plain)
+            strm.next_out = self._addressof_bytearray(dest)
+            strm.avail_out = len(dest)
+
+            with self._limit_avail_in_out(strm, 1, 1):
+                self._assert_deflate_ok(strm, pyzlib.Z_NO_FLUSH)
+
+            with self._limit_avail_in_out(strm, 1, 2):
+                self._assert_deflate_ok(strm, pyzlib.Z_SYNC_FLUSH)
+
+            with self._limit_avail_in_out(strm, 1, 344):
+                err = pyzlib.deflateParams(
+                    strm,
+                    level=pyzlib.Z_BEST_SPEED,
+                    strategy=pyzlib.Z_DEFAULT_STRATEGY,
+                )
+                self.assertIn(err, (pyzlib.Z_OK, pyzlib.Z_BUF_ERROR))
+
+            with self._limit_avail_in_out(strm, 1, 344):
+                self._assert_deflate_ok(strm, pyzlib.Z_NO_FLUSH)
+
+            with self._limit_avail_in_out(strm, 1, 344):
+                self._assert_deflate_ok(strm, pyzlib.Z_NO_FLUSH)
+
+            with self._limit_avail_in_out(strm, 0, 1):
+                self._assert_deflate_ok(strm, pyzlib.Z_NO_FLUSH)
+
+            with self._limit_avail_in_out(strm, 0, 1):
+                self._assert_deflate_ok(strm, pyzlib.Z_PARTIAL_FLUSH)
+
+            with self._limit_avail_in_out(strm, 0, 1):
+                err = pyzlib.deflateParams(
+                    strm,
+                    level=pyzlib.Z_DEFAULT_COMPRESSION,
+                    strategy=pyzlib.Z_RLE,
+                )
+                self.assertIn(err, (pyzlib.Z_OK, pyzlib.Z_BUF_ERROR))
+
+            self._assert_deflate_stream_end(strm)
         self._check_inflate(
             dest=dest,
             compressed_size=len(dest) - strm.avail_out,
