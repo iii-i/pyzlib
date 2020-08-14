@@ -5,7 +5,9 @@ import itertools
 import os
 import random
 import subprocess
+import sys
 import tempfile
+import time
 import unittest
 import zlib
 
@@ -83,10 +85,12 @@ class TestCase(unittest.TestCase):
         self.assertEqual(pyzlib.Z_STREAM_END, err)
 
     def test_version(self):
-        print(pyzlib.zlibVersion())
+        print(file=sys.stderr)
+        print(pyzlib.zlibVersion(), file=sys.stderr)
 
     def test_compile_flags(self):
-        print(hex(pyzlib.zlibCompileFlags()))
+        print(file=sys.stderr)
+        print(hex(pyzlib.zlibCompileFlags()), file=sys.stderr)
 
     def test_inflate_deflate(self):
         with tempfile.TemporaryFile() as ifp:
@@ -913,6 +917,99 @@ class TestCase(unittest.TestCase):
                 self.assertEqual(pyzlib.Z_OK, err)
             zlen = strm.total_out
         self._check_inflate(zbuf, zlen, buf)
+
+    def test_deflate_performance(self):
+        # https://www.zlib.net/zlib_how.html
+        # "buffers sizes on the order of 128K or 256K bytes should be used"
+        buf = bytearray(self._make_gen()(256 * 1024))
+        len_buf = len(buf)
+        addressof_buf = ctypes.cast(
+            ctypes.addressof((ctypes.c_char * len_buf).from_buffer(buf)),
+            ctypes.c_char_p)
+        with self._make_deflate_stream(level=pyzlib.Z_BEST_SPEED) as strm:
+            zbuf = ctypes.create_string_buffer(
+                pyzlib.deflateBound(strm, len_buf))
+            addressof_zbuf = ctypes.cast(
+                ctypes.addressof(zbuf),
+                ctypes.c_char_p)
+            len_zbuf = len(zbuf)
+            duration = 1
+            deadline = time.time() + duration
+            while time.time() < deadline:
+                strm.next_in = addressof_buf
+                strm.avail_in = len_buf
+                while strm.avail_in > 0:
+                    strm.next_out = addressof_zbuf
+                    strm.avail_out = len_zbuf
+                    err = pyzlib.deflate(strm, pyzlib.Z_NO_FLUSH)
+                    self.assertEqual(pyzlib.Z_OK, err)
+            while True:
+                strm.next_out = addressof_zbuf
+                strm.avail_out = len_zbuf
+                err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
+                if err == pyzlib.Z_STREAM_END:
+                    break
+                self.assertEqual(pyzlib.Z_OK, err)
+        gbs = strm.total_in / 1024. / 1024. / 1024. / duration
+        print(file=sys.stderr)
+        print('deflate performance: %.3f GB/s' % gbs, file=sys.stderr)
+        rate_percent = (strm.total_out * 100 / strm.total_in)
+        print('deflate rate       : %.2f%%' % rate_percent, file=sys.stderr)
+
+    def _deflate_blocks(self):
+        buf = bytearray(self._make_gen()(256 * 1024))
+        with self._make_deflate_stream(
+                window_bits=WB_RAW, level=pyzlib.Z_BEST_SPEED) as strm:
+            strm.next_in = self._addressof_bytearray(buf)
+            strm.avail_in = len(buf)
+            zbuf = ctypes.create_string_buffer(
+                pyzlib.deflateBound(strm, len(buf)))
+            strm.next_out = ctypes.cast(
+                ctypes.addressof(zbuf),
+                ctypes.c_char_p)
+            strm.avail_out = len(zbuf)
+            err = pyzlib.deflate(strm, pyzlib.Z_FULL_FLUSH)
+            self.assertEqual(pyzlib.Z_OK, err)
+            self.assertEqual(0, strm.avail_in)
+            zbuf_len = len(zbuf) - strm.avail_out
+            zbuf_finish = ctypes.create_string_buffer(
+                pyzlib.deflateBound(strm, len(buf)))
+            strm.next_out = ctypes.cast(
+                ctypes.addressof(zbuf_finish),
+                ctypes.c_char_p)
+            strm.avail_out = len(zbuf_finish)
+            err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
+            self.assertEqual(pyzlib.Z_STREAM_END, err)
+            zbuf_finish_len = len(zbuf_finish) - strm.avail_out
+        return len(buf), zbuf, zbuf_len, zbuf_finish, zbuf_finish_len
+
+    def test_inflate_performace(self):
+        # https://www.zlib.net/zlib_how.html
+        # "buffers sizes on the order of 128K or 256K bytes should be used"
+        buf_len, zbuf, zbuf_len, zbuf_finish, zbuf_finish_len = \
+            self._deflate_blocks()
+        print(file=sys.stderr)
+        print('repeat %dB, finish %dB' % (zbuf_len, zbuf_finish_len),
+              file=sys.stderr)
+        with self._make_inflate_stream(window_bits=WB_RAW) as strm:
+            buf = ctypes.create_string_buffer(buf_len)
+            duration = 1
+            deadline = time.time() + duration
+            while time.time() < deadline:
+                strm.next_in = ctypes.cast(
+                    ctypes.addressof(zbuf),
+                    ctypes.c_char_p)
+                strm.avail_in = zbuf_len
+                strm.next_out = ctypes.cast(
+                    ctypes.addressof(buf),
+                    ctypes.c_char_p)
+                strm.avail_out = len(buf)
+                err = pyzlib.inflate(strm, pyzlib.Z_NO_FLUSH)
+                self.assertEqual(pyzlib.Z_OK, err)
+                self.assertEqual(0, strm.avail_in)
+                self.assertEqual(0, strm.avail_out)
+        gbs = strm.total_out / 1024. / 1024. / 1024. / duration
+        print('inflate performance: %.3f GB/s' % gbs, file=sys.stderr)
 
 
 if __name__ == '__main__':
