@@ -464,7 +464,14 @@ class TestCase(unittest.TestCase):
                 strm.next_out = self._addressof_bytearray(compressed)
                 strm.avail_out = len(compressed)
                 self._assert_deflate_stream_end(strm)
-                self.assertEqual(b'\x78\x01', compressed[0:2])
+                compression_method = compressed[0] & 0xf
+                self.assertEqual(0x8, compression_method)
+                cinfo = compressed[0] >> 4
+                self.assertLessEqual(cinfo, 7)
+                fdict = (compressed[1] >> 5) & 1
+                self.assertEqual(0, fdict)
+                flevel = compressed[1] >> 6
+                self.assertEqual(0, flevel)
                 # deflateReset should preserve the compression level
                 pyzlib.deflateReset(strm)
         finally:
