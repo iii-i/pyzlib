@@ -1,3 +1,0 @@
-[submodule "benchmark/squash-benchmark"]
-	path = benchmark/squash-benchmark
-	url = https://github.com/quixdb/squash-benchmark.git
