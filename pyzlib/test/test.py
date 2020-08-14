@@ -100,13 +100,13 @@ class TestCase(unittest.TestCase):
             ifp.seek(0)
             basedir = os.path.dirname(__file__)
             deflate = subprocess.Popen(
-                [os.path.join(basedir, 'deflate.py')],
+                [sys.executable, os.path.join(basedir, 'deflate.py')],
                 stdin=ifp,
                 stdout=subprocess.PIPE)
             try:
                 with tempfile.TemporaryFile() as ofp:
                     subprocess.check_call(
-                        [os.path.join(basedir, 'inflate.py')],
+                        [sys.executable, os.path.join(basedir, 'inflate.py')],
                         stdin=deflate.stdout,
                         stdout=ofp)
                     ofp.seek(0)
