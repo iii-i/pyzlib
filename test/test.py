@@ -32,7 +32,7 @@ def gen_nulls(r):
 
 def gen_zeros_ones(r):
     while True:
-        yield bytes(r.choice((b'0', b'1'), 4096))
+        yield bytes(r.choice((0x30, 0x31)) for _ in range(4096))
 
 
 def gen_random(r):
@@ -848,6 +848,71 @@ class TestCase(unittest.TestCase):
             self.assertEqual(pyzlib.Z_STREAM_END, err)
             self.assertEqual(0, strm.avail_out)
             self.assertEqual(plain, plain2)
+
+    @staticmethod
+    def _make_gen():
+        return Gen(gen_mix(random.Random(1135747107)))
+
+    @parameterized.parameterized.expand(((n,) for n in range(0, 7)))
+    def test_1(self, n):
+        buf = bytearray(self._make_gen()(n))
+        with self._make_deflate_stream() as strm:
+            zbuf = ctypes.create_string_buffer(
+                pyzlib.deflateBound(strm, len(buf)))
+            strm.next_in = ctypes.addressof(
+                (ctypes.c_char * len(buf)).from_buffer(buf))
+            strm.avail_in = len(buf)
+            strm.next_out = ctypes.addressof(zbuf)
+            zlen = 0
+            while True:
+                strm.avail_out = 1
+                err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
+                self.assertIn(err, (pyzlib.Z_OK, pyzlib.Z_STREAM_END))
+                zlen += 1 - strm.avail_out
+                if err == pyzlib.Z_STREAM_END:
+                    break
+            self.assertEqual(zlen, strm.total_out)
+        self._check_inflate(zbuf, zlen, buf)
+
+    @parameterized.parameterized.expand(((n,) for n in range(0, 7)))
+    def test_2(self, n):
+        buf = bytearray(self._make_gen()(n))
+        with self._make_deflate_stream() as strm:
+            zbuf = ctypes.create_string_buffer(
+                pyzlib.deflateBound(strm, len(buf)))
+            strm.next_in = ctypes.addressof(
+                (ctypes.c_char * len(buf)).from_buffer(buf))
+            strm.avail_in = len(buf)
+            strm.next_out = ctypes.addressof(zbuf)
+            strm.avail_out = len(zbuf)
+            while True:
+                flush = (pyzlib.Z_FINISH
+                         if strm.avail_in == 0
+                         else pyzlib.Z_NO_FLUSH)
+                err = pyzlib.deflate(strm, flush)
+                if err == pyzlib.Z_STREAM_END and flush == pyzlib.Z_FINISH:
+                    break
+                self.assertEqual(pyzlib.Z_OK, err)
+            zlen = strm.total_out
+        self._check_inflate(zbuf, zlen, buf)
+
+    def test_3(self):
+        buf = bytearray(self._make_gen()(2 * 1024 * 1024))
+        with self._make_deflate_stream() as strm:
+            zbuf = ctypes.create_string_buffer(
+                pyzlib.deflateBound(strm, len(buf)))
+            strm.next_in = ctypes.addressof(
+                (ctypes.c_char * len(buf)).from_buffer(buf))
+            strm.avail_in = len(buf)
+            strm.next_out = ctypes.addressof(zbuf)
+            strm.avail_out = len(zbuf)
+            while True:
+                err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
+                if err == pyzlib.Z_STREAM_END:
+                    break
+                self.assertEqual(pyzlib.Z_OK, err)
+            zlen = strm.total_out
+        self._check_inflate(zbuf, zlen, buf)
 
 
 if __name__ == '__main__':
