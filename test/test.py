@@ -1011,6 +1011,137 @@ class TestCase(unittest.TestCase):
         gbs = strm.total_out / 1024. / 1024. / 1024. / duration
         print('inflate performance: %.3f GB/s' % gbs, file=sys.stderr)
 
+    # Putting all possible pairs into one sequence:
+    #
+    # (1, 1) (1, 2) (1, 3)
+    # (2, 1) (2, 2) (2, 3)
+    # (3, 1) (3, 2) (3, 3)
+    #
+    # (1, 1)                                             | 1,1
+    # (1, 2) (2, 2) (2, 1)                               | 2,2,1
+    # (1, 3) (3, 3) (3, 2) (2, 3) (3, 1)                 | 3,3,2,3,1
+    # (1, 4) (4, 4) (4, 2) (2, 4) (4, 3) (3, 4) (4, 1)   | 4,4,2,4,3,4,1
+
+    @staticmethod
+    def _sizes():
+        yield 1
+        yield 2
+        for i in range(2, 19):  # up to and including 512k
+            yield 2 ** i - 1
+            yield 2 ** i
+            yield 2 ** i + 1
+
+    @classmethod
+    def _sequence_of_sizes(cls):
+        it_x = enumerate(cls._sizes())
+        _, x0 = next(it_x)
+        yield x0
+        yield x0
+        for i, x in it_x:
+            yield x
+            yield x
+            it_y = iter(enumerate(cls._sizes()))
+            _, y0 = next(it_y)
+            for j, y in it_y:
+                if j == i:
+                    break
+                yield y
+                yield x
+            yield y0
+
+    @classmethod
+    def _deflate(cls, ofp, gen, isizes, osizes):
+        with cls._make_deflate_stream() as strm:
+            it = iter(zip(isizes, osizes))
+            ibuf = bytearray()
+            stream_end = False
+            while not stream_end:
+                try:
+                    isize, osize = next(it)
+                    flush = pyzlib.Z_NO_FLUSH
+                except StopIteration:
+                    isize, osize = len(ibuf), 8192
+                    flush = pyzlib.Z_FINISH
+                iextra = isize - len(ibuf)
+                if iextra > 0:
+                    ibuf.extend(gen(iextra))
+                obuf = ctypes.create_string_buffer(osize)
+                strm.next_in = ctypes.addressof(
+                    (ctypes.c_char * len(ibuf)).from_buffer(ibuf))
+                strm.avail_in = isize
+                strm.next_out = ctypes.addressof(obuf)
+                strm.avail_out = osize
+                err = pyzlib.deflate(strm, flush)
+                if err == pyzlib.Z_STREAM_END and flush == pyzlib.Z_FINISH:
+                    stream_end = True
+                elif err != pyzlib.Z_OK:
+                    raise Exception('deflate() failed: error %d' % err)
+                del ibuf[:isize - strm.avail_in]
+                ofp.write(obuf[:osize - strm.avail_out])
+            print('deflate ok, total_in=%d total_out=%d' %
+                  (strm.total_in, strm.total_out),
+                  file=sys.stderr)
+
+    @staticmethod
+    def _read_n(fp, n):
+        buf = bytearray()
+        while n > 0:
+            chunk = fp.read(n)
+            if len(chunk) == 0:
+                break
+            buf.extend(chunk)
+            n -= len(chunk)
+        return buf
+
+    def _inflate(self, ifp, gen, isizes, osizes):
+        with self._make_inflate_stream() as strm:
+            it = iter(zip(isizes, osizes))
+            ibuf = bytearray()
+            while True:
+                try:
+                    isize, osize = next(it)
+                except StopIteration:
+                    isize, osize = 8192, 16384
+                iextra = isize - len(ibuf)
+                if iextra > 0:
+                    ibuf.extend(self._read_n(ifp, iextra))
+                    if isize > len(ibuf):
+                        isize = len(ibuf)
+                obuf = ctypes.create_string_buffer(osize)
+                strm.next_in = ctypes.addressof(
+                    (ctypes.c_char * len(ibuf)).from_buffer(ibuf))
+                strm.avail_in = isize
+                strm.next_out = ctypes.addressof(obuf)
+                strm.avail_out = osize
+                err = pyzlib.inflate(strm, pyzlib.Z_NO_FLUSH)
+                if err == pyzlib.Z_STREAM_END:
+                    break
+                if err != pyzlib.Z_OK:
+                    raise Exception('inflate() failed: error %d' % err)
+                del ibuf[:isize - strm.avail_in]
+                self.assertEqual(
+                    gen(osize - strm.avail_out),
+                    obuf[:osize - strm.avail_out],
+                    msg='total_in=%d total_out=%d' %
+                        (strm.total_in, strm.total_out))
+            print('inflate ok, total_in=%d total_out=%d' %
+                  (strm.total_in, strm.total_out),
+                  file=sys.stderr)
+
+    def _test_deflate_inflate(self, isizes, osizes):
+        with tempfile.TemporaryFile() as fp:
+            with tempfile.TemporaryFile() as zfp:
+                self._deflate(zfp, self._make_gen(), isizes, osizes)
+                fp.seek(0)
+                zfp.seek(0)
+                self._inflate(zfp, self._make_gen(), isizes, osizes)
+
+    def test_matrix(self):
+        print(file=sys.stderr)
+        isizes = list(self._sequence_of_sizes())
+        osizes = reversed(isizes)
+        self._test_deflate_inflate(isizes, osizes)
+
 
 if __name__ == '__main__':
     unittest.main()
