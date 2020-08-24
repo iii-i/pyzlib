@@ -102,18 +102,21 @@ class TestCase(unittest.TestCase):
             deflate = subprocess.Popen(
                 [sys.executable, os.path.join(basedir, 'deflate.py')],
                 stdin=ifp,
-                stdout=subprocess.PIPE)
+                stdout=subprocess.PIPE,
+            )
             try:
                 with tempfile.TemporaryFile() as ofp:
                     subprocess.check_call(
                         [sys.executable, os.path.join(basedir, 'inflate.py')],
                         stdin=deflate.stdout,
-                        stdout=ofp)
+                        stdout=ofp,
+                    )
                     ofp.seek(0)
                     self.assertEqual(data, ofp.read())
             finally:
                 if deflate.wait() != 0:
                     raise Exception('deflate failed')
+                deflate.stdout.close()
 
     @staticmethod
     @contextlib.contextmanager
