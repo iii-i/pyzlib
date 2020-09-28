@@ -500,3 +500,13 @@ def uncompress2(dest, destLen, source, sourceLen):
         source,
         ctypes.addressof(source_len_buf))
     return ret, dest_len_buf.v, source_len_buf.v
+
+
+_zlib.inflateSyncPoint.restype = ctypes.c_int
+_zlib.inflateSyncPoint.argtypes = [
+    ctypes.c_void_p,  # strm
+]
+
+
+def inflateSyncPoint(strm):
+    return _zlib.inflateSyncPoint(ctypes.addressof(strm))
