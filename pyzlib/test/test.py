@@ -17,19 +17,19 @@ import pyzlib
 
 def gen_hello(r):
     while True:
-        yield b'hello\n'
+        yield b"hello\n"
 
 
 def gen_seq(r):
     i = 0
     while True:
-        yield ('%d\n' % i).encode()
+        yield ("%d\n" % i).encode()
         i += 1
 
 
 def gen_nulls(r):
     while True:
-        yield b'\0' * 4096
+        yield b"\0" * 4096
 
 
 def gen_zeros_ones(r):
@@ -94,20 +94,20 @@ class TestCase(unittest.TestCase):
 
     def test_inflate_deflate(self):
         with tempfile.TemporaryFile() as ifp:
-            data = b'\n'.join([str(x).encode() for x in range(5000)])
+            data = b"\n".join([str(x).encode() for x in range(5000)])
             ifp.write(data)
             ifp.flush()
             ifp.seek(0)
             basedir = os.path.dirname(__file__)
             deflate = subprocess.Popen(
-                [sys.executable, os.path.join(basedir, 'deflate.py')],
+                [sys.executable, os.path.join(basedir, "deflate.py")],
                 stdin=ifp,
                 stdout=subprocess.PIPE,
             )
             try:
                 with tempfile.TemporaryFile() as ofp:
                     subprocess.check_call(
-                        [sys.executable, os.path.join(basedir, 'inflate.py')],
+                        [sys.executable, os.path.join(basedir, "inflate.py")],
                         stdin=deflate.stdout,
                         stdout=ofp,
                     )
@@ -115,23 +115,25 @@ class TestCase(unittest.TestCase):
                     self.assertEqual(data, ofp.read())
             finally:
                 if deflate.wait() != 0:
-                    raise Exception('deflate failed')
+                    raise Exception("deflate failed")
                 deflate.stdout.close()
 
     @staticmethod
     @contextlib.contextmanager
     def _make_deflate_stream(
-            window_bits=WB_ZLIB,
-            level=pyzlib.Z_DEFAULT_COMPRESSION,
-            mem_level=8,
-            strategy=pyzlib.Z_DEFAULT_STRATEGY,
+        window_bits=WB_ZLIB,
+        level=pyzlib.Z_DEFAULT_COMPRESSION,
+        mem_level=8,
+        strategy=pyzlib.Z_DEFAULT_STRATEGY,
     ):
         strm = pyzlib.z_stream(
-            zalloc=pyzlib.Z_NULL, free=pyzlib.Z_NULL,
-            opaque=pyzlib.Z_NULL)
-        if window_bits != WB_ZLIB or \
-                mem_level != 8 or \
-                strategy != pyzlib.Z_DEFAULT_STRATEGY:
+            zalloc=pyzlib.Z_NULL, free=pyzlib.Z_NULL, opaque=pyzlib.Z_NULL
+        )
+        if (
+            window_bits != WB_ZLIB
+            or mem_level != 8
+            or strategy != pyzlib.Z_DEFAULT_STRATEGY
+        ):
             err = pyzlib.deflateInit2(
                 strm,
                 level=level,
@@ -143,33 +145,36 @@ class TestCase(unittest.TestCase):
         else:
             err = pyzlib.deflateInit(strm, level)
         if err != pyzlib.Z_OK:
-            raise Exception('deflateInit() failed: error %d' % err)
+            raise Exception("deflateInit() failed: error %d" % err)
         try:
             yield strm
         finally:
             err = pyzlib.deflateEnd(strm)
             if err != pyzlib.Z_OK:
-                raise Exception('deflateEnd() failed: error %d' % err)
+                raise Exception("deflateEnd() failed: error %d" % err)
 
     @staticmethod
     @contextlib.contextmanager
     def _make_inflate_stream(window_bits=WB_ZLIB):
         strm = pyzlib.z_stream(
-            next_in=pyzlib.Z_NULL, avail_in=0,
-            zalloc=pyzlib.Z_NULL, free=pyzlib.Z_NULL,
-            opaque=pyzlib.Z_NULL)
+            next_in=pyzlib.Z_NULL,
+            avail_in=0,
+            zalloc=pyzlib.Z_NULL,
+            free=pyzlib.Z_NULL,
+            opaque=pyzlib.Z_NULL,
+        )
         if window_bits != WB_ZLIB:
             err = pyzlib.inflateInit2(strm, windowBits=window_bits)
         else:
             err = pyzlib.inflateInit(strm)
         if err != pyzlib.Z_OK:
-            raise Exception('inflateInit() failed: error %d' % err)
+            raise Exception("inflateInit() failed: error %d" % err)
         try:
             yield strm
         finally:
             err = pyzlib.inflateEnd(strm)
             if err != pyzlib.Z_OK:
-                raise Exception('inflateEnd() failed: error %d' % err)
+                raise Exception("inflateEnd() failed: error %d" % err)
 
     @staticmethod
     def _addressof_string_buffer(buf, offset=0):
@@ -177,9 +182,10 @@ class TestCase(unittest.TestCase):
 
     @staticmethod
     def _addressof_bytearray(buf):
-        return ctypes.cast(ctypes.addressof(
-            (ctypes.c_char * len(buf)).from_buffer(buf)),
-            ctypes.c_char_p)
+        return ctypes.cast(
+            ctypes.addressof((ctypes.c_char * len(buf)).from_buffer(buf)),
+            ctypes.c_char_p,
+        )
 
     @staticmethod
     def _shl(buf, bits):
@@ -202,11 +208,12 @@ class TestCase(unittest.TestCase):
     @parameterized.parameterized.expand(((bits,) for bits in range(0, 17)))
     def test_inflate_prime(self, bits):
         with self._make_deflate_stream(window_bits=WB_RAW) as strm:
-            buf = ctypes.create_string_buffer(b'hello')
+            buf = ctypes.create_string_buffer(b"hello")
             strm.next_in = self._addressof_string_buffer(buf)
             strm.avail_in = len(buf)
             zbuf = ctypes.create_string_buffer(
-                pyzlib.deflateBound(strm, strm.avail_in))
+                pyzlib.deflateBound(strm, strm.avail_in)
+            )
             strm.next_out = self._addressof_string_buffer(zbuf)
             strm.avail_out = len(zbuf)
             self._assert_deflate_stream_end(strm)
@@ -221,28 +228,29 @@ class TestCase(unittest.TestCase):
             pyzlib.inflatePrime(strm, bits, value)
             err = pyzlib.inflate(strm, pyzlib.Z_NO_FLUSH)
             self.assertEqual(pyzlib.Z_STREAM_END, err)
-            self.assertEqual(b'hello\0', bytes(buf))
+            self.assertEqual(b"hello\0", bytes(buf))
 
     def _set_dictionary(self, strm, gen, size):
         buf = bytearray(gen(size))
         err = pyzlib.deflateSetDictionary(
-            strm, self._addressof_bytearray(buf), len(buf))
+            strm, self._addressof_bytearray(buf), len(buf)
+        )
         self.assertEqual(pyzlib.Z_OK, err)
         return buf
 
     def _gen_buf(self, gen, size, dict):
         result = bytearray()
         result += gen(size // 3)
-        result += dict[:size // 3]
+        result += dict[: size // 3]
         result += gen(size - len(result))
         return result
 
     SET_DICTIONARY_SIZES = [1 << x for x in range(0, 17, 4)]
 
     @parameterized.parameterized.expand(
-        itertools.product(*([SET_DICTIONARY_SIZES] * 4)))
-    def test_set_dictionary(
-            self, dict1_size, buf2_size, dict3_size, buf4_size):
+        itertools.product(*([SET_DICTIONARY_SIZES] * 4))
+    )
+    def test_set_dictionary(self, dict1_size, buf2_size, dict3_size, buf4_size):
         gen = Gen(gen_random(random.Random(2024749321)))
         with tempfile.NamedTemporaryFile() as zfp:
             with self._make_deflate_stream(window_bits=WB_RAW) as strm:
@@ -252,12 +260,10 @@ class TestCase(unittest.TestCase):
                 strm.avail_in = len(buf2)
                 while True:
                     zbuf = ctypes.create_string_buffer(4096)
-                    strm.next_out = ctypes.cast(
-                        ctypes.addressof(zbuf),
-                        ctypes.c_char_p)
+                    strm.next_out = ctypes.cast(ctypes.addressof(zbuf), ctypes.c_char_p)
                     strm.avail_out = len(zbuf)
                     self._assert_deflate_ok(strm, pyzlib.Z_BLOCK)
-                    zfp.write(zbuf[:len(zbuf) - strm.avail_out])
+                    zfp.write(zbuf[: len(zbuf) - strm.avail_out])
                     if strm.avail_out != 0:
                         break
                 dict3 = self._set_dictionary(strm, gen, dict3_size)
@@ -267,22 +273,21 @@ class TestCase(unittest.TestCase):
                 stream_end = False
                 while not stream_end:
                     zbuf = ctypes.create_string_buffer(4096)
-                    strm.next_out = ctypes.cast(
-                        ctypes.addressof(zbuf),
-                        ctypes.c_char_p)
+                    strm.next_out = ctypes.cast(ctypes.addressof(zbuf), ctypes.c_char_p)
                     strm.avail_out = len(zbuf)
                     err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
                     if err == pyzlib.Z_STREAM_END:
                         stream_end = True
                     else:
                         self.assertEqual(pyzlib.Z_OK, err)
-                    zfp.write(zbuf[:len(zbuf) - strm.avail_out])
+                    zfp.write(zbuf[: len(zbuf) - strm.avail_out])
             zfp.flush()
             zfp.seek(0)
             inflated = bytearray()
             with self._make_inflate_stream(window_bits=WB_RAW) as strm:
                 err = pyzlib.inflateSetDictionary(
-                    strm, self._addressof_bytearray(dict1), len(dict1))
+                    strm, self._addressof_bytearray(dict1), len(dict1)
+                )
                 self.assertEqual(pyzlib.Z_OK, err)
                 stream_end = False
                 while not stream_end:
@@ -290,16 +295,17 @@ class TestCase(unittest.TestCase):
                     if len(zbuf) == 0:
                         break
                     strm.next_in = ctypes.addressof(
-                        (ctypes.c_char * len(zbuf)).from_buffer(zbuf))
+                        (ctypes.c_char * len(zbuf)).from_buffer(zbuf)
+                    )
                     strm.avail_in = len(zbuf)
                     while True:
                         buf = ctypes.create_string_buffer(4096)
                         strm.next_out = ctypes.cast(
-                            ctypes.addressof(buf),
-                            ctypes.c_char_p)
+                            ctypes.addressof(buf), ctypes.c_char_p
+                        )
                         strm.avail_out = len(buf)
                         err = pyzlib.inflate(strm, pyzlib.Z_BLOCK)
-                        inflated += buf[:len(buf) - strm.avail_out]
+                        inflated += buf[: len(buf) - strm.avail_out]
                         if err == pyzlib.Z_STREAM_END:
                             stream_end = True
                             break
@@ -309,19 +315,20 @@ class TestCase(unittest.TestCase):
                         if strm.data_type & 128 != 0:
                             if strm.total_out == len(buf2):
                                 err = pyzlib.inflateSetDictionary(
-                                    strm, self._addressof_bytearray(dict3),
-                                    len(dict3))
+                                    strm, self._addressof_bytearray(dict3), len(dict3)
+                                )
                                 self.assertEqual(pyzlib.Z_OK, err)
                 self.assertEqual(buf2 + buf4, inflated)
 
     def test_compress(self):
         dest = bytearray(pyzlib.compressBound(4096))
-        source = bytearray(b'A' * 4096)
+        source = bytearray(b"A" * 4096)
         err, dest_len = pyzlib.compress(
             self._addressof_bytearray(dest),
             len(dest),
             self._addressof_bytearray(source),
-            len(source))
+            len(source),
+        )
         self.assertEqual(pyzlib.Z_OK, err)
         self.assertLessEqual(dest_len, len(dest))
         self.assertEqual(source, zlib.decompress(dest[:dest_len]))
@@ -329,39 +336,42 @@ class TestCase(unittest.TestCase):
     @parameterized.parameterized.expand(((level,) for level in range(1, 10)))
     def test_compress2(self, level):
         dest = bytearray(128)
-        source = bytearray(b'A' * 4096)
+        source = bytearray(b"A" * 4096)
         err, dest_len = pyzlib.compress2(
             self._addressof_bytearray(dest),
             len(dest),
             self._addressof_bytearray(source),
             len(source),
-            level)
+            level,
+        )
         self.assertEqual(pyzlib.Z_OK, err)
         self.assertLessEqual(dest_len, len(dest))
         self.assertEqual(source, zlib.decompress(dest[:dest_len]))
 
     def test_uncompress(self):
-        plain = bytearray(b'A' * 4096)
+        plain = bytearray(b"A" * 4096)
         source = bytearray(zlib.compress(plain))
         dest = bytearray(len(plain))
         err, dest_len = pyzlib.uncompress(
             self._addressof_bytearray(dest),
             len(dest),
             self._addressof_bytearray(source),
-            len(source))
+            len(source),
+        )
         self.assertEqual(pyzlib.Z_OK, err)
         self.assertLessEqual(dest_len, len(dest))
         self.assertEqual(plain, dest)
 
     def test_uncompress2(self):
-        plain = bytearray(b'A' * 4096)
+        plain = bytearray(b"A" * 4096)
         source = bytearray(zlib.compress(plain))
         dest = bytearray(len(plain))
         err, dest_len, source_len = pyzlib.uncompress2(
             self._addressof_bytearray(dest),
             len(dest),
             self._addressof_bytearray(source),
-            len(source))
+            len(source),
+        )
         self.assertEqual(pyzlib.Z_OK, err)
         self.assertLessEqual(dest_len, len(dest))
         self.assertEqual(source_len, len(source))
@@ -395,18 +405,17 @@ class TestCase(unittest.TestCase):
                 yield
 
     def _check_inflate(
-            self,
-            dest,
-            compressed_size,
-            plain,
-            window_bits=WB_ZLIB,
-            dictionary=None,
+        self,
+        dest,
+        compressed_size,
+        plain,
+        window_bits=WB_ZLIB,
+        dictionary=None,
     ):
         plain2 = bytearray(len(plain))
         with self._make_inflate_stream(window_bits=window_bits) as strm:
             if window_bits == WB_RAW and dictionary is not None:
-                err = pyzlib.inflateSetDictionary(
-                    strm, dictionary, len(dictionary))
+                err = pyzlib.inflateSetDictionary(strm, dictionary, len(dictionary))
                 self.assertEqual(pyzlib.Z_OK, err)
             strm.next_in = self._addressof_bytearray(dest)
             strm.avail_in = compressed_size
@@ -415,8 +424,7 @@ class TestCase(unittest.TestCase):
             err = pyzlib.inflate(strm, pyzlib.Z_NO_FLUSH)
             if window_bits == WB_ZLIB and dictionary is not None:
                 self.assertEqual(pyzlib.Z_NEED_DICT, err)
-                err = pyzlib.inflateSetDictionary(
-                    strm, dictionary, len(dictionary))
+                err = pyzlib.inflateSetDictionary(strm, dictionary, len(dictionary))
                 self.assertEqual(pyzlib.Z_OK, err)
                 err = pyzlib.inflate(strm, pyzlib.Z_NO_FLUSH)
             self.assertEqual(pyzlib.Z_STREAM_END, err)
@@ -437,14 +445,16 @@ class TestCase(unittest.TestCase):
                 for level2 in range(10):
                     with self._limit_avail_in(strm, chunk_size):
                         err = pyzlib.deflateParams(
-                            strm, level1, pyzlib.Z_DEFAULT_STRATEGY)
+                            strm, level1, pyzlib.Z_DEFAULT_STRATEGY
+                        )
                         self.assertEqual(pyzlib.Z_OK, err)
                     with self._limit_avail_in(strm, chunk_size):
                         self._assert_deflate_ok(strm, pyzlib.Z_NO_FLUSH)
                     with self._limit_avail_in(strm, chunk_size):
                         err = pyzlib.deflateParams(
-                            strm, level2, pyzlib.Z_DEFAULT_STRATEGY)
-                        msg = 'deflateParams({} -> {})'.format(level1, level2)
+                            strm, level2, pyzlib.Z_DEFAULT_STRATEGY
+                        )
+                        msg = "deflateParams({} -> {})".format(level1, level2)
                         self.assertEqual(pyzlib.Z_OK, err, msg)
                     with self._limit_avail_in(strm, chunk_size):
                         self._assert_deflate_ok(strm, pyzlib.Z_NO_FLUSH)
@@ -454,20 +464,20 @@ class TestCase(unittest.TestCase):
 
     def test_deflate_reset(self):
         strm = pyzlib.z_stream(
-            zalloc=pyzlib.Z_NULL, free=pyzlib.Z_NULL,
-            opaque=pyzlib.Z_NULL)
+            zalloc=pyzlib.Z_NULL, free=pyzlib.Z_NULL, opaque=pyzlib.Z_NULL
+        )
         err = pyzlib.deflateInit(strm, pyzlib.Z_BEST_SPEED)
         self.assertEqual(pyzlib.Z_OK, err)
         try:
             for _ in range(2):
-                plain = bytearray(b'AAAA')
+                plain = bytearray(b"AAAA")
                 compressed = bytearray(1024)
                 strm.next_in = self._addressof_bytearray(plain)
                 strm.avail_in = len(plain)
                 strm.next_out = self._addressof_bytearray(compressed)
                 strm.avail_out = len(compressed)
                 self._assert_deflate_stream_end(strm)
-                compression_method = compressed[0] & 0xf
+                compression_method = compressed[0] & 0xF
                 self.assertEqual(0x8, compression_method)
                 cinfo = compressed[0] >> 4
                 self.assertLessEqual(cinfo, 7)
@@ -481,7 +491,7 @@ class TestCase(unittest.TestCase):
             pyzlib.deflateEnd(strm)
 
     def test_small_out(self):
-        plain = bytearray(b'\x05\x4e')
+        plain = bytearray(b"\x05\x4e")
         dest = bytearray(16)
         sizeof_zlib_header = 2
         with self._make_deflate_stream() as strm:
@@ -497,7 +507,7 @@ class TestCase(unittest.TestCase):
         self._check_inflate(dest, compressed_size, plain)
 
     def test_small_out2(self):
-        plain = bytearray(b'\xff\xff\x60\xff\x00\x7b')
+        plain = bytearray(b"\xff\xff\x60\xff\x00\x7b")
         dest = bytearray(16)
         with self._make_deflate_stream(level=pyzlib.Z_BEST_SPEED) as strm:
             strm.next_in = self._addressof_bytearray(plain)
@@ -526,7 +536,7 @@ class TestCase(unittest.TestCase):
         self._check_inflate(dest, consumed_out, plain)
 
     def test_small_out3(self):
-        plain = bytearray(b'\x3f\xff\xf8\xff\xff\xff\xff\xff\xff')
+        plain = bytearray(b"\x3f\xff\xf8\xff\xff\xff\xff\xff\xff")
         dest = bytearray(658)
         with self._make_deflate_stream(level=pyzlib.Z_BEST_SPEED) as strm:
             strm.next_in = self._addressof_bytearray(plain)
@@ -556,20 +566,19 @@ class TestCase(unittest.TestCase):
         self._check_inflate(dest, len(dest) - strm.avail_out, plain)
 
     def test_set_dictionary2(self):
-        plain = bytearray(b'\x2d')
+        plain = bytearray(b"\x2d")
         dest = bytearray(130)
         with self._make_deflate_stream(
-                window_bits=WB_RAW,
-                level=pyzlib.Z_BEST_SPEED,
+            window_bits=WB_RAW,
+            level=pyzlib.Z_BEST_SPEED,
         ) as strm:
             strm.next_in = self._addressof_bytearray(plain)
             strm.avail_in = len(plain)
             strm.next_out = self._addressof_bytearray(dest)
             strm.avail_out = len(dest)
 
-            dictionary = b'\xd7'
-            err = pyzlib.deflateSetDictionary(
-                strm, dictionary, len(dictionary))
+            dictionary = b"\xd7"
+            err = pyzlib.deflateSetDictionary(strm, dictionary, len(dictionary))
             self.assertEqual(pyzlib.Z_OK, err)
 
             err = pyzlib.deflateParams(
@@ -589,22 +598,21 @@ class TestCase(unittest.TestCase):
         )
 
     def test_set_dictionary3(self):
-        plain = bytearray(b'\x00\x00\x00')
+        plain = bytearray(b"\x00\x00\x00")
         dest = bytearray(134)
         with self._make_deflate_stream(
-                window_bits=WB_RAW,
-                level=pyzlib.Z_BEST_SPEED,
-                mem_level=1,
-                strategy=pyzlib.Z_FIXED,
+            window_bits=WB_RAW,
+            level=pyzlib.Z_BEST_SPEED,
+            mem_level=1,
+            strategy=pyzlib.Z_FIXED,
         ) as strm:
             strm.next_in = self._addressof_bytearray(plain)
             strm.avail_in = len(plain)
             strm.next_out = self._addressof_bytearray(dest)
             strm.avail_out = len(dest)
 
-            dictionary = b'\x00\x09'
-            err = pyzlib.deflateSetDictionary(
-                strm, dictionary, len(dictionary))
+            dictionary = b"\x00\x09"
+            err = pyzlib.deflateSetDictionary(strm, dictionary, len(dictionary))
             self.assertEqual(pyzlib.Z_OK, err)
 
             err = pyzlib.deflateParams(
@@ -624,21 +632,20 @@ class TestCase(unittest.TestCase):
         )
 
     def test_set_dictionary4(self):
-        plain = bytearray(b'\x00\x3a\x00\x00\x00')
+        plain = bytearray(b"\x00\x3a\x00\x00\x00")
         dest = bytearray(266)
         with self._make_deflate_stream(
-                level=pyzlib.Z_BEST_SPEED,
-                mem_level=5,
-                strategy=pyzlib.Z_FIXED,
+            level=pyzlib.Z_BEST_SPEED,
+            mem_level=5,
+            strategy=pyzlib.Z_FIXED,
         ) as strm:
             strm.next_in = self._addressof_bytearray(plain)
             strm.avail_in = len(plain)
             strm.next_out = self._addressof_bytearray(dest)
             strm.avail_out = len(dest)
 
-            dictionary = b'\x00'
-            err = pyzlib.deflateSetDictionary(
-                strm, dictionary, len(dictionary))
+            dictionary = b"\x00"
+            err = pyzlib.deflateSetDictionary(strm, dictionary, len(dictionary))
             self.assertEqual(pyzlib.Z_OK, err)
 
             with self._limit_avail_in_out(strm, 2, 3):
@@ -666,13 +673,13 @@ class TestCase(unittest.TestCase):
         )
 
     def test_deflate_params2(self):
-        plain = bytearray(b'\xef')
+        plain = bytearray(b"\xef")
         dest = bytearray(392)
         with self._make_deflate_stream(
-                window_bits=WB_GZIP,
-                level=pyzlib.Z_DEFAULT_COMPRESSION,
-                mem_level=1,
-                strategy=pyzlib.Z_DEFAULT_STRATEGY,
+            window_bits=WB_GZIP,
+            level=pyzlib.Z_DEFAULT_COMPRESSION,
+            mem_level=1,
+            strategy=pyzlib.Z_DEFAULT_STRATEGY,
         ) as strm:
             strm.next_in = self._addressof_bytearray(plain)
             strm.avail_in = len(plain)
@@ -707,13 +714,13 @@ class TestCase(unittest.TestCase):
         )
 
     def test_deflate_params3(self):
-        plain = bytearray(b'\xfb\x00\x72\x00\x00\x00')
+        plain = bytearray(b"\xfb\x00\x72\x00\x00\x00")
         dest = bytearray(786)
         with self._make_deflate_stream(
-                window_bits=WB_GZIP,
-                level=pyzlib.Z_BEST_SPEED,
-                mem_level=4,
-                strategy=pyzlib.Z_FILTERED,
+            window_bits=WB_GZIP,
+            level=pyzlib.Z_BEST_SPEED,
+            mem_level=4,
+            strategy=pyzlib.Z_FILTERED,
         ) as strm:
             strm.next_in = self._addressof_bytearray(plain)
             strm.avail_in = len(plain)
@@ -757,13 +764,13 @@ class TestCase(unittest.TestCase):
         )
 
     def test_deflate_params4(self):
-        plain = bytearray(b'\x00\x00\xff\x00\x00\x00')
+        plain = bytearray(b"\x00\x00\xff\x00\x00\x00")
         dest = bytearray(1042)
         with self._make_deflate_stream(
-                window_bits=WB_GZIP,
-                level=pyzlib.Z_BEST_SPEED,
-                mem_level=1,
-                strategy=pyzlib.Z_FILTERED,
+            window_bits=WB_GZIP,
+            level=pyzlib.Z_BEST_SPEED,
+            mem_level=1,
+            strategy=pyzlib.Z_FILTERED,
         ) as strm:
             strm.next_in = self._addressof_bytearray(plain)
             strm.avail_in = len(plain)
@@ -814,19 +821,19 @@ class TestCase(unittest.TestCase):
 
     def test_deflate_params5(self):
         plain = bytearray(
-            b'\x00\x00\x00\x00\x00\x00\x99\x00\xfe\x00\x00\x00\x00\x00\x00\x00'
-            b'\x00\x00\x00\x00\x00\x00\x00\xfe\x00\x00\x00\x00\x99\x00\xfe\x00'
-            b'\x00\x00\x00\x00\x00\x99\x00\xfe\x00\x00\x00\x00\x99\x00\xfe\x00'
-            b'\x00\x00\x99\x00\xfe\x00\x00\x00\x00\x99\x00\xfe\x00\x00\x00\x00'
-            b'\x99\x00\xfe\x00\x00\x00\x00\x00\x00\x99\x00\xfe\x00\x00\x00\x00'
-            b'\x99\x00\xfe\x00'
+            b"\x00\x00\x00\x00\x00\x00\x99\x00\xfe\x00\x00\x00\x00\x00\x00\x00"
+            b"\x00\x00\x00\x00\x00\x00\x00\xfe\x00\x00\x00\x00\x99\x00\xfe\x00"
+            b"\x00\x00\x00\x00\x00\x99\x00\xfe\x00\x00\x00\x00\x99\x00\xfe\x00"
+            b"\x00\x00\x99\x00\xfe\x00\x00\x00\x00\x99\x00\xfe\x00\x00\x00\x00"
+            b"\x99\x00\xfe\x00\x00\x00\x00\x00\x00\x99\x00\xfe\x00\x00\x00\x00"
+            b"\x99\x00\xfe\x00"
         )
         dest = bytearray(680)
         with self._make_deflate_stream(
-                window_bits=WB_RAW,
-                level=pyzlib.Z_BEST_SPEED,
-                mem_level=7,
-                strategy=pyzlib.Z_FILTERED,
+            window_bits=WB_RAW,
+            level=pyzlib.Z_BEST_SPEED,
+            mem_level=7,
+            strategy=pyzlib.Z_FILTERED,
         ) as strm:
             strm.next_in = self._addressof_bytearray(plain)
             strm.avail_in = len(plain)
@@ -871,10 +878,8 @@ class TestCase(unittest.TestCase):
     def test_1(self, n):
         buf = bytearray(self._make_gen()(n))
         with self._make_deflate_stream() as strm:
-            zbuf = ctypes.create_string_buffer(
-                pyzlib.deflateBound(strm, len(buf)))
-            strm.next_in = ctypes.addressof(
-                (ctypes.c_char * len(buf)).from_buffer(buf))
+            zbuf = ctypes.create_string_buffer(pyzlib.deflateBound(strm, len(buf)))
+            strm.next_in = ctypes.addressof((ctypes.c_char * len(buf)).from_buffer(buf))
             strm.avail_in = len(buf)
             strm.next_out = ctypes.addressof(zbuf)
             zlen = 0
@@ -892,17 +897,13 @@ class TestCase(unittest.TestCase):
     def test_2(self, n):
         buf = bytearray(self._make_gen()(n))
         with self._make_deflate_stream() as strm:
-            zbuf = ctypes.create_string_buffer(
-                pyzlib.deflateBound(strm, len(buf)))
-            strm.next_in = ctypes.addressof(
-                (ctypes.c_char * len(buf)).from_buffer(buf))
+            zbuf = ctypes.create_string_buffer(pyzlib.deflateBound(strm, len(buf)))
+            strm.next_in = ctypes.addressof((ctypes.c_char * len(buf)).from_buffer(buf))
             strm.avail_in = len(buf)
             strm.next_out = ctypes.addressof(zbuf)
             strm.avail_out = len(zbuf)
             while True:
-                flush = (pyzlib.Z_FINISH
-                         if strm.avail_in == 0
-                         else pyzlib.Z_NO_FLUSH)
+                flush = pyzlib.Z_FINISH if strm.avail_in == 0 else pyzlib.Z_NO_FLUSH
                 err = pyzlib.deflate(strm, flush)
                 if err == pyzlib.Z_STREAM_END and flush == pyzlib.Z_FINISH:
                     break
@@ -913,10 +914,8 @@ class TestCase(unittest.TestCase):
     def test_3(self):
         buf = bytearray(self._make_gen()(2 * 1024 * 1024))
         with self._make_deflate_stream() as strm:
-            zbuf = ctypes.create_string_buffer(
-                pyzlib.deflateBound(strm, len(buf)))
-            strm.next_in = ctypes.addressof(
-                (ctypes.c_char * len(buf)).from_buffer(buf))
+            zbuf = ctypes.create_string_buffer(pyzlib.deflateBound(strm, len(buf)))
+            strm.next_in = ctypes.addressof((ctypes.c_char * len(buf)).from_buffer(buf))
             strm.avail_in = len(buf)
             strm.next_out = ctypes.addressof(zbuf)
             strm.avail_out = len(zbuf)
@@ -935,13 +934,11 @@ class TestCase(unittest.TestCase):
         len_buf = len(buf)
         addressof_buf = ctypes.cast(
             ctypes.addressof((ctypes.c_char * len_buf).from_buffer(buf)),
-            ctypes.c_char_p)
+            ctypes.c_char_p,
+        )
         with self._make_deflate_stream(level=pyzlib.Z_BEST_SPEED) as strm:
-            zbuf = ctypes.create_string_buffer(
-                pyzlib.deflateBound(strm, len_buf))
-            addressof_zbuf = ctypes.cast(
-                ctypes.addressof(zbuf),
-                ctypes.c_char_p)
+            zbuf = ctypes.create_string_buffer(pyzlib.deflateBound(strm, len_buf))
+            addressof_zbuf = ctypes.cast(ctypes.addressof(zbuf), ctypes.c_char_p)
             len_zbuf = len(zbuf)
             duration = 1
             deadline = time.time() + duration
@@ -960,33 +957,30 @@ class TestCase(unittest.TestCase):
                 if err == pyzlib.Z_STREAM_END:
                     break
                 self.assertEqual(pyzlib.Z_OK, err)
-        gbs = strm.total_in / 1024. / 1024. / 1024. / duration
+        gbs = strm.total_in / 1024.0 / 1024.0 / 1024.0 / duration
         print(file=sys.stderr)
-        print('deflate performance: %.3f GB/s' % gbs, file=sys.stderr)
-        rate_percent = (strm.total_out * 100 / strm.total_in)
-        print('deflate rate       : %.2f%%' % rate_percent, file=sys.stderr)
+        print("deflate performance: %.3f GB/s" % gbs, file=sys.stderr)
+        rate_percent = strm.total_out * 100 / strm.total_in
+        print("deflate rate       : %.2f%%" % rate_percent, file=sys.stderr)
 
     def _deflate_blocks(self):
         buf = bytearray(self._make_gen()(256 * 1024))
         with self._make_deflate_stream(
-                window_bits=WB_RAW, level=pyzlib.Z_BEST_SPEED) as strm:
+            window_bits=WB_RAW, level=pyzlib.Z_BEST_SPEED
+        ) as strm:
             strm.next_in = self._addressof_bytearray(buf)
             strm.avail_in = len(buf)
-            zbuf = ctypes.create_string_buffer(
-                pyzlib.deflateBound(strm, len(buf)))
-            strm.next_out = ctypes.cast(
-                ctypes.addressof(zbuf),
-                ctypes.c_char_p)
+            zbuf = ctypes.create_string_buffer(pyzlib.deflateBound(strm, len(buf)))
+            strm.next_out = ctypes.cast(ctypes.addressof(zbuf), ctypes.c_char_p)
             strm.avail_out = len(zbuf)
             err = pyzlib.deflate(strm, pyzlib.Z_FULL_FLUSH)
             self.assertEqual(pyzlib.Z_OK, err)
             self.assertEqual(0, strm.avail_in)
             zbuf_len = len(zbuf) - strm.avail_out
             zbuf_finish = ctypes.create_string_buffer(
-                pyzlib.deflateBound(strm, len(buf)))
-            strm.next_out = ctypes.cast(
-                ctypes.addressof(zbuf_finish),
-                ctypes.c_char_p)
+                pyzlib.deflateBound(strm, len(buf))
+            )
+            strm.next_out = ctypes.cast(ctypes.addressof(zbuf_finish), ctypes.c_char_p)
             strm.avail_out = len(zbuf_finish)
             err = pyzlib.deflate(strm, pyzlib.Z_FINISH)
             self.assertEqual(pyzlib.Z_STREAM_END, err)
@@ -996,30 +990,24 @@ class TestCase(unittest.TestCase):
     def test_inflate_performace(self):
         # https://www.zlib.net/zlib_how.html
         # "buffers sizes on the order of 128K or 256K bytes should be used"
-        buf_len, zbuf, zbuf_len, zbuf_finish, zbuf_finish_len = \
-            self._deflate_blocks()
+        buf_len, zbuf, zbuf_len, zbuf_finish, zbuf_finish_len = self._deflate_blocks()
         print(file=sys.stderr)
-        print('repeat %dB, finish %dB' % (zbuf_len, zbuf_finish_len),
-              file=sys.stderr)
+        print("repeat %dB, finish %dB" % (zbuf_len, zbuf_finish_len), file=sys.stderr)
         with self._make_inflate_stream(window_bits=WB_RAW) as strm:
             buf = ctypes.create_string_buffer(buf_len)
             duration = 1
             deadline = time.time() + duration
             while time.time() < deadline:
-                strm.next_in = ctypes.cast(
-                    ctypes.addressof(zbuf),
-                    ctypes.c_char_p)
+                strm.next_in = ctypes.cast(ctypes.addressof(zbuf), ctypes.c_char_p)
                 strm.avail_in = zbuf_len
-                strm.next_out = ctypes.cast(
-                    ctypes.addressof(buf),
-                    ctypes.c_char_p)
+                strm.next_out = ctypes.cast(ctypes.addressof(buf), ctypes.c_char_p)
                 strm.avail_out = len(buf)
                 err = pyzlib.inflate(strm, pyzlib.Z_NO_FLUSH)
                 self.assertEqual(pyzlib.Z_OK, err)
                 self.assertEqual(0, strm.avail_in)
                 self.assertEqual(0, strm.avail_out)
-        gbs = strm.total_out / 1024. / 1024. / 1024. / duration
-        print('inflate performance: %.3f GB/s' % gbs, file=sys.stderr)
+        gbs = strm.total_out / 1024.0 / 1024.0 / 1024.0 / duration
+        print("inflate performance: %.3f GB/s" % gbs, file=sys.stderr)
 
     # Putting all possible pairs into one sequence:
     #
@@ -1077,7 +1065,8 @@ class TestCase(unittest.TestCase):
                     ibuf.extend(gen(iextra))
                 obuf = ctypes.create_string_buffer(osize)
                 strm.next_in = ctypes.addressof(
-                    (ctypes.c_char * len(ibuf)).from_buffer(ibuf))
+                    (ctypes.c_char * len(ibuf)).from_buffer(ibuf)
+                )
                 strm.avail_in = isize
                 strm.next_out = ctypes.addressof(obuf)
                 strm.avail_out = osize
@@ -1085,12 +1074,14 @@ class TestCase(unittest.TestCase):
                 if err == pyzlib.Z_STREAM_END and flush == pyzlib.Z_FINISH:
                     stream_end = True
                 elif err != pyzlib.Z_OK:
-                    raise Exception('deflate() failed: error %d' % err)
-                del ibuf[:isize - strm.avail_in]
-                ofp.write(obuf[:osize - strm.avail_out])
-            print('deflate ok, total_in=%d total_out=%d' %
-                  (strm.total_in, strm.total_out),
-                  file=sys.stderr)
+                    raise Exception("deflate() failed: error %d" % err)
+                del ibuf[: isize - strm.avail_in]
+                ofp.write(obuf[: osize - strm.avail_out])
+            print(
+                "deflate ok, total_in=%d total_out=%d"
+                % (strm.total_in, strm.total_out),
+                file=sys.stderr,
+            )
 
     @staticmethod
     def _read_n(fp, n):
@@ -1119,7 +1110,8 @@ class TestCase(unittest.TestCase):
                         isize = len(ibuf)
                 obuf = ctypes.create_string_buffer(osize)
                 strm.next_in = ctypes.addressof(
-                    (ctypes.c_char * len(ibuf)).from_buffer(ibuf))
+                    (ctypes.c_char * len(ibuf)).from_buffer(ibuf)
+                )
                 strm.avail_in = isize
                 strm.next_out = ctypes.addressof(obuf)
                 strm.avail_out = osize
@@ -1127,16 +1119,18 @@ class TestCase(unittest.TestCase):
                 if err == pyzlib.Z_STREAM_END:
                     break
                 if err != pyzlib.Z_OK:
-                    raise Exception('inflate() failed: error %d' % err)
-                del ibuf[:isize - strm.avail_in]
+                    raise Exception("inflate() failed: error %d" % err)
+                del ibuf[: isize - strm.avail_in]
                 self.assertEqual(
                     gen(osize - strm.avail_out),
-                    obuf[:osize - strm.avail_out],
-                    msg='total_in=%d total_out=%d' %
-                        (strm.total_in, strm.total_out))
-            print('inflate ok, total_in=%d total_out=%d' %
-                  (strm.total_in, strm.total_out),
-                  file=sys.stderr)
+                    obuf[: osize - strm.avail_out],
+                    msg="total_in=%d total_out=%d" % (strm.total_in, strm.total_out),
+                )
+            print(
+                "inflate ok, total_in=%d total_out=%d"
+                % (strm.total_in, strm.total_out),
+                file=sys.stderr,
+            )
 
     def _test_deflate_inflate(self, isizes, osizes):
         with tempfile.TemporaryFile() as fp:
@@ -1153,7 +1147,7 @@ class TestCase(unittest.TestCase):
         self._test_deflate_inflate(isizes, osizes)
 
     def _test_inflate_sync_point(self, deflate_flush):
-        plain = bytearray(b'abc')
+        plain = bytearray(b"abc")
         deflated = bytearray(256)
         inflated = bytearray(len(plain))
         with self._make_deflate_stream(level=pyzlib.Z_BEST_SPEED) as dstrm:
@@ -1169,7 +1163,8 @@ class TestCase(unittest.TestCase):
                 avail_in = len(deflated) - dstrm.avail_out
                 istrm.avail_in = avail_in - 4
                 self.assertEqual(
-                    b'\x00\x00\xff\xff', deflated[istrm.avail_in:avail_in])
+                    b"\x00\x00\xff\xff", deflated[istrm.avail_in : avail_in]
+                )
                 istrm.next_out = self._addressof_bytearray(inflated)
                 istrm.avail_out = len(inflated)
                 err = pyzlib.inflate(istrm, pyzlib.Z_SYNC_FLUSH)
@@ -1189,5 +1184,5 @@ class TestCase(unittest.TestCase):
         self._test_inflate_sync_point(pyzlib.Z_FULL_FLUSH)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -2,8 +2,8 @@ import ctypes
 import ctypes.util
 import os
 
-ZLIB_VERSION = b'1.2.11'
-ZLIB_VERNUM = 0x12b0
+ZLIB_VERSION = b"1.2.11"
+ZLIB_VERNUM = 0x12B0
 ZLIB_VER_MAJOR = 1
 ZLIB_VER_MINOR = 2
 ZLIB_VER_REVISION = 11
@@ -12,20 +12,20 @@ ZLIB_VER_SUBREVISION = 0
 
 class z_stream(ctypes.Structure):
     _fields_ = [
-        ('next_in', ctypes.c_char_p),
-        ('avail_in', ctypes.c_uint),
-        ('total_in', ctypes.c_ulong),
-        ('next_out', ctypes.c_char_p),
-        ('avail_out', ctypes.c_uint),
-        ('total_out', ctypes.c_ulong),
-        ('msg', ctypes.c_char_p),
-        ('state', ctypes.c_void_p),
-        ('zalloc', ctypes.c_void_p),
-        ('zfree', ctypes.c_void_p),
-        ('opaque', ctypes.c_void_p),
-        ('data_type', ctypes.c_int),
-        ('adler', ctypes.c_ulong),
-        ('reserved', ctypes.c_ulong),
+        ("next_in", ctypes.c_char_p),
+        ("avail_in", ctypes.c_uint),
+        ("total_in", ctypes.c_ulong),
+        ("next_out", ctypes.c_char_p),
+        ("avail_out", ctypes.c_uint),
+        ("total_out", ctypes.c_ulong),
+        ("msg", ctypes.c_char_p),
+        ("state", ctypes.c_void_p),
+        ("zalloc", ctypes.c_void_p),
+        ("zfree", ctypes.c_void_p),
+        ("opaque", ctypes.c_void_p),
+        ("data_type", ctypes.c_int),
+        ("adler", ctypes.c_ulong),
+        ("reserved", ctypes.c_ulong),
     ]
 
 
@@ -67,10 +67,10 @@ Z_DEFLATED = 8
 
 Z_NULL = None
 
-_zlib_name = ctypes.util.find_library('z')
+_zlib_name = ctypes.util.find_library("z")
 if _zlib_name is None:
-    raise Exception('Could not find zlib')
-if os.name == 'posix':
+    raise Exception("Could not find zlib")
+if os.name == "posix":
     # Allow LD_PRELOAD interposition
     ctypes.CDLL(_zlib_name, mode=ctypes.RTLD_GLOBAL)
     _zlib = ctypes.CDLL(None)
@@ -96,8 +96,11 @@ _zlib.deflateInit_.argtypes = [
 
 def deflateInit(strm, level):
     return _zlib.deflateInit_(
-        ctypes.addressof(strm), level,
-        ctypes.c_char_p(ZLIB_VERSION), ctypes.sizeof(z_stream))
+        ctypes.addressof(strm),
+        level,
+        ctypes.c_char_p(ZLIB_VERSION),
+        ctypes.sizeof(z_stream),
+    )
 
 
 _zlib.deflate.restype = ctypes.c_int
@@ -131,8 +134,8 @@ _zlib.inflateInit_.argtypes = [
 
 def inflateInit(strm):
     return _zlib.inflateInit_(
-        ctypes.addressof(strm),
-        ctypes.c_char_p(ZLIB_VERSION), ctypes.sizeof(z_stream))
+        ctypes.addressof(strm), ctypes.c_char_p(ZLIB_VERSION), ctypes.sizeof(z_stream)
+    )
 
 
 _zlib.inflate.restype = ctypes.c_int
@@ -171,8 +174,15 @@ _zlib.deflateInit2_.argtypes = [
 
 def deflateInit2(strm, level, method, windowBits, memLevel, strategy):
     return _zlib.deflateInit2_(
-        ctypes.addressof(strm), level, method, windowBits, memLevel, strategy,
-        ctypes.c_char_p(ZLIB_VERSION), ctypes.sizeof(z_stream))
+        ctypes.addressof(strm),
+        level,
+        method,
+        windowBits,
+        memLevel,
+        strategy,
+        ctypes.c_char_p(ZLIB_VERSION),
+        ctypes.sizeof(z_stream),
+    )
 
 
 _zlib.deflateSetDictionary.restype = ctypes.c_int
@@ -184,8 +194,7 @@ _zlib.deflateSetDictionary.argtypes = [
 
 
 def deflateSetDictionary(strm, dictionary, dictLength):
-    return _zlib.deflateSetDictionary(
-        ctypes.addressof(strm), dictionary, dictLength)
+    return _zlib.deflateSetDictionary(ctypes.addressof(strm), dictionary, dictLength)
 
 
 _zlib.deflateGetDictionary.restype = ctypes.c_int
@@ -197,8 +206,7 @@ _zlib.deflateGetDictionary.argtypes = [
 
 
 def deflateGetDictionary(strm, dictionary, dictLength):
-    return _zlib.deflateGetDictionary(
-        ctypes.addressof(strm), dictionary, dictLength)
+    return _zlib.deflateGetDictionary(ctypes.addressof(strm), dictionary, dictLength)
 
 
 _zlib.deflateCopy.restype = ctypes.c_int
@@ -246,7 +254,8 @@ _zlib.deflateTune.argtypes = [
 
 def deflateTune(strm, good_length, max_lazy, nice_length, max_chain):
     return _zlib.deflateTune(
-        ctypes.addressof(strm), good_length, max_lazy, nice_length, max_chain)
+        ctypes.addressof(strm), good_length, max_lazy, nice_length, max_chain
+    )
 
 
 _zlib.deflateBound.restype = ctypes.c_ulong
@@ -270,19 +279,19 @@ _zlib.deflatePending.argtypes = [
 
 class _c_uint_wrapper(ctypes.Structure):
     _fields_ = [
-        ('v', ctypes.c_uint),
+        ("v", ctypes.c_uint),
     ]
 
 
 class _c_int_wrapper(ctypes.Structure):
     _fields_ = [
-        ('v', ctypes.c_int),
+        ("v", ctypes.c_int),
     ]
 
 
 class _c_ulong_wrapper(ctypes.Structure):
     _fields_ = [
-        ('v', ctypes.c_ulong),
+        ("v", ctypes.c_ulong),
     ]
 
 
@@ -290,9 +299,8 @@ def deflatePending(strm):
     pending = _c_uint_wrapper()
     bits = _c_int_wrapper()
     ret = _zlib.deflatePending(
-        ctypes.addressof(strm),
-        ctypes.addressof(pending),
-        ctypes.addressof(bits))
+        ctypes.addressof(strm), ctypes.addressof(pending), ctypes.addressof(bits)
+    )
     return ret, pending.v, bits.v
 
 
@@ -319,8 +327,11 @@ _zlib.inflateInit2_.argtypes = [
 
 def inflateInit2(strm, windowBits):
     return _zlib.inflateInit2_(
-        ctypes.addressof(strm), windowBits,
-        ctypes.c_char_p(ZLIB_VERSION), ctypes.sizeof(z_stream))
+        ctypes.addressof(strm),
+        windowBits,
+        ctypes.c_char_p(ZLIB_VERSION),
+        ctypes.sizeof(z_stream),
+    )
 
 
 _zlib.inflateSetDictionary.restype = ctypes.c_int
@@ -332,8 +343,7 @@ _zlib.inflateSetDictionary.argtypes = [
 
 
 def inflateSetDictionary(strm, dictionary, dictLength):
-    return _zlib.inflateSetDictionary(
-        ctypes.addressof(strm), dictionary, dictLength)
+    return _zlib.inflateSetDictionary(ctypes.addressof(strm), dictionary, dictLength)
 
 
 _zlib.inflateSync.restype = ctypes.c_int
@@ -420,11 +430,7 @@ _zlib.compress.argtypes = [
 def compress(dest, destLen, source, sourceLen):
     dest_len_buf = _c_ulong_wrapper()
     dest_len_buf.v = destLen
-    ret = _zlib.compress(
-        dest,
-        ctypes.addressof(dest_len_buf),
-        source,
-        sourceLen)
+    ret = _zlib.compress(dest, ctypes.addressof(dest_len_buf), source, sourceLen)
     return ret, dest_len_buf.v
 
 
@@ -442,11 +448,8 @@ def compress2(dest, destLen, source, sourceLen, level):
     dest_len_buf = _c_ulong_wrapper()
     dest_len_buf.v = destLen
     ret = _zlib.compress2(
-        dest,
-        ctypes.addressof(dest_len_buf),
-        source,
-        sourceLen,
-        level)
+        dest, ctypes.addressof(dest_len_buf), source, sourceLen, level
+    )
     return ret, dest_len_buf.v
 
 
@@ -472,11 +475,7 @@ _zlib.uncompress.argtypes = [
 def uncompress(dest, destLen, source, sourceLen):
     dest_len_buf = _c_ulong_wrapper()
     dest_len_buf.v = destLen
-    ret = _zlib.uncompress(
-        dest,
-        ctypes.addressof(dest_len_buf),
-        source,
-        sourceLen)
+    ret = _zlib.uncompress(dest, ctypes.addressof(dest_len_buf), source, sourceLen)
     return ret, dest_len_buf.v
 
 
@@ -495,10 +494,8 @@ def uncompress2(dest, destLen, source, sourceLen):
     source_len_buf = _c_ulong_wrapper()
     source_len_buf.v = sourceLen
     ret = _zlib.uncompress2(
-        dest,
-        ctypes.addressof(dest_len_buf),
-        source,
-        ctypes.addressof(source_len_buf))
+        dest, ctypes.addressof(dest_len_buf), source, ctypes.addressof(source_len_buf)
+    )
     return ret, dest_len_buf.v, source_len_buf.v
 
 

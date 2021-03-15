@@ -8,19 +8,23 @@ import pyzlib
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--window-bits', type=int, default=15)
+    parser.add_argument("--window-bits", type=int, default=15)
     args = parser.parse_args()
     strm = pyzlib.z_stream(
-        next_in=pyzlib.Z_NULL, avail_in=0,
-        zalloc=pyzlib.Z_NULL, free=pyzlib.Z_NULL, opaque=pyzlib.Z_NULL)
+        next_in=pyzlib.Z_NULL,
+        avail_in=0,
+        zalloc=pyzlib.Z_NULL,
+        free=pyzlib.Z_NULL,
+        opaque=pyzlib.Z_NULL,
+    )
     if args.window_bits == 15:
-        init_func_name = 'inflateInit'
+        init_func_name = "inflateInit"
         rc = pyzlib.inflateInit(strm)
     else:
-        init_func_name = 'inflateInit2'
+        init_func_name = "inflateInit2"
         rc = pyzlib.inflateInit2(strm, args.window_bits)
     if rc != pyzlib.Z_OK:
-        raise Exception('{}() failed with error {}'.format(init_func_name, rc))
+        raise Exception("{}() failed with error {}".format(init_func_name, rc))
     stream_end = False
     obuf = ctypes.create_string_buffer(16384)
     while not stream_end:
@@ -36,12 +40,12 @@ def main():
             elif rc == pyzlib.Z_BUF_ERROR:
                 break
             elif rc != pyzlib.Z_OK:
-                raise Exception('inflate() failed with error {}'.format(rc))
-            sys.stdout.buffer.write(obuf[:len(obuf) - strm.avail_out])
+                raise Exception("inflate() failed with error {}".format(rc))
+            sys.stdout.buffer.write(obuf[: len(obuf) - strm.avail_out])
     rc = pyzlib.inflateEnd(strm)
     if rc != pyzlib.Z_OK:
-        raise Exception('inflateEnd() failed with error {}'.format(rc))
+        raise Exception("inflateEnd() failed with error {}".format(rc))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
