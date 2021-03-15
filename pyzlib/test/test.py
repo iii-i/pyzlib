@@ -1183,6 +1183,38 @@ class TestCase(unittest.TestCase):
     def test_inflate_sync_point2(self):
         self._test_inflate_sync_point(pyzlib.Z_FULL_FLUSH)
 
+    def test_4(self):
+        # Compress data.
+        plain = bytearray(b"\x00\x52\x52\x52\x52")
+        dest = bytearray(138)
+        with self._make_deflate_stream(
+            window_bits=WB_GZIP,
+            level=6,
+            mem_level=7,
+            strategy=pyzlib.Z_FILTERED,
+        ) as strm:
+            strm.next_in = self._addressof_bytearray(plain)
+            strm.avail_in = len(plain)
+            strm.next_out = self._addressof_bytearray(dest)
+            strm.avail_out = len(dest)
+            self._assert_deflate_stream_end(strm)
+
+        # Corrupt the compressed data.
+        dest[13] ^= 0x10
+
+        # Do not check the return values, it's enough to not crash or hang.
+        plain2 = bytearray(len(plain))
+        with self._make_inflate_stream(window_bits=WB_GZIP) as strm:
+            strm.next_in = self._addressof_bytearray(dest)
+            strm.avail_in = len(dest) - strm.avail_out
+            strm.next_out = self._addressof_bytearray(plain2)
+            strm.avail_out = len(plain2)
+            with self._limit_avail_in_out(strm, 23, 2):
+                pyzlib.inflate(strm, pyzlib.Z_NO_FLUSH)
+            with self._limit_avail_in_out(strm, 1, 2):
+                pyzlib.inflate(strm, pyzlib.Z_NO_FLUSH)
+            pyzlib.inflate(strm, pyzlib.Z_NO_FLUSH)
+
 
 if __name__ == "__main__":
     unittest.main()
