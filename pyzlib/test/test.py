@@ -321,8 +321,8 @@ class TestCase(unittest.TestCase):
                 self.assertEqual(buf2 + buf4, inflated)
 
     def test_compress(self):
-        dest = bytearray(pyzlib.compressBound(4096))
-        source = bytearray(b"A" * 4096)
+        source = Gen(gen_random(random.Random(4005773848)))(4096)
+        dest = bytearray(pyzlib.compressBound(len(source)))
         err, dest_len = pyzlib.compress(
             self._addressof_bytearray(dest),
             len(dest),
