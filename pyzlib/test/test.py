@@ -211,9 +211,7 @@ class TestCase(unittest.TestCase):
             buf = ctypes.create_string_buffer(b"hello")
             strm.next_in = self._addressof_string_buffer(buf)
             strm.avail_in = len(buf)
-            zbuf = ctypes.create_string_buffer(
-                pyzlib.deflateBound(strm, strm.avail_in)
-            )
+            zbuf = ctypes.create_string_buffer(pyzlib.deflateBound(strm, strm.avail_in))
             strm.next_out = self._addressof_string_buffer(zbuf)
             strm.avail_out = len(zbuf)
             self._assert_deflate_stream_end(strm)

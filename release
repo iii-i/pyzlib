@@ -3,7 +3,8 @@ set -e -u -x
 cd "$(dirname "$0")"
 
 # style check
-flake8 $(git ls-files "*.py")
+./fmt
+git diff --exit-code
 
 # test
 PYTHONPATH="$PWD" python3 -m unittest discover
